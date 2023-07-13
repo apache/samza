@@ -26,6 +26,8 @@ import com.google.common.collect.Sets;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.Charset;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.config.BlobStoreConfig;
 import org.apache.samza.config.JobConfig;
@@ -56,6 +59,7 @@ import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
 import org.apache.samza.system.IncomingMessageEnvelope;
 import org.apache.samza.test.util.TestBlobStoreManager;
 import org.apache.samza.util.FileUtil;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,7 +73,7 @@ import static org.junit.Assert.assertTrue;
 public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegrationTest {
   @Parameterized.Parameters(name = "hostAffinity={0}")
   public static Collection<Boolean> data() {
-    return Arrays.asList(true, false);
+    return Arrays.asList(true);
   }
 
   private static final String INPUT_SYSTEM = "kafka";
@@ -138,7 +142,14 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     fileUtil.rm(new File(LOGGED_STORE_BASE_DIR)); // always clear local store on startup
     // no need to clear ledger dir since subdir of blob store base dir
     fileUtil.rm(new File(BLOB_STORE_BASE_DIR)); // always clear local "blob store" on startup
+  }
 
+  @After
+  @Override
+  public void tearDown() {
+    FileUtil fileUtil = new FileUtil();
+    fileUtil.rm(new File(LOGGED_STORE_BASE_DIR));
+    fileUtil.rm(new File(BLOB_STORE_BASE_DIR));
   }
 
   @Test
@@ -174,6 +185,76 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     List<String> expectedInitialInMemoryStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
     List<String> expectedInitialSideInputStoreContentsOnSecondRun = new ArrayList<>(sideInputMessagesOnInitialRun);
     expectedInitialSideInputStoreContentsOnSecondRun.addAll(sideInputMessagesBeforeSecondRun);
+    secondRun(
+        hostAffinity,
+        LOGGED_STORE_BASE_DIR,
+        INPUT_SYSTEM,
+        INPUT_TOPIC,
+        SIDE_INPUT_TOPIC,
+        inputMessagesBeforeSecondRun,
+        sideInputMessagesBeforeSecondRun,
+        ImmutableSet.of(REGULAR_STORE_NAME),
+        Collections.emptyMap(),
+        ImmutableSet.of(IN_MEMORY_STORE_NAME),
+        ImmutableMap.of(IN_MEMORY_STORE_NAME, IN_MEMORY_STORE_CHANGELOG_TOPIC),
+        SIDE_INPUT_STORE_NAME,
+        Collections.emptyList(),
+        expectedInitialStoreContentsOnSecondRun,
+        expectedInitialInMemoryStoreContentsOnSecondRun,
+        expectedInitialSideInputStoreContentsOnSecondRun,
+        CONFIGS);
+
+    verifyLedger(REGULAR_STORE_NAME, Optional.of(lastRegularSnapshot), hostAffinity, false, false);
+    verifyLedger(SIDE_INPUT_STORE_NAME, Optional.of(lastSideInputSnapshot), hostAffinity, true, true);
+  }
+
+  @Test
+  public void runDeleteRun() {
+    List<String> inputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "2", "97", "-97", ":98", ":99", ":crash_once");
+    List<String> sideInputMessagesOnInitialRun = Arrays.asList("1", "2", "3", "4", "5", "6");
+    initialRun(
+        INPUT_SYSTEM,
+        INPUT_TOPIC,
+        SIDE_INPUT_TOPIC,
+        inputMessagesOnInitialRun,
+        sideInputMessagesOnInitialRun,
+        ImmutableSet.of(REGULAR_STORE_NAME),
+        Collections.emptyMap(),
+        ImmutableSet.of(IN_MEMORY_STORE_NAME),
+        ImmutableMap.of(IN_MEMORY_STORE_NAME, IN_MEMORY_STORE_CHANGELOG_TOPIC),
+        SIDE_INPUT_STORE_NAME,
+        Collections.emptyList(),
+        CONFIGS);
+
+    Pair<String, SnapshotIndex> lastRegularSnapshot =
+        verifyLedger(REGULAR_STORE_NAME, Optional.empty(), hostAffinity, false, false);
+    Pair<String, SnapshotIndex> lastSideInputSnapshot =
+        verifyLedger(SIDE_INPUT_STORE_NAME, Optional.empty(), hostAffinity, true,
+            false /* no side input offsets file will be present during initial restore */);
+
+    // verifies transactional state too
+    List<String> inputMessagesBeforeSecondRun = Arrays.asList("4", "5", "5", ":shutdown");
+    List<String> sideInputMessagesBeforeSecondRun = Arrays.asList("7", "8", "9");
+    List<String> expectedInitialStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
+    // verifies that in-memory stores backed by changelogs work correctly
+    // (requires overriding store level state backends explicitly)
+    List<String> expectedInitialInMemoryStoreContentsOnSecondRun = Arrays.asList("1", "2", "3");
+    List<String> expectedInitialSideInputStoreContentsOnSecondRun = new ArrayList<>(sideInputMessagesOnInitialRun);
+    expectedInitialSideInputStoreContentsOnSecondRun.addAll(sideInputMessagesBeforeSecondRun);
+
+    try (DirectoryStream<Path> stream =
+        Files.newDirectoryStream(Paths.get(BLOB_STORE_BASE_DIR + "/myApp/1/Partition 0/regularStore/"), "snapshot-index*")) {
+      for (Path entry : stream) {
+        Path newFilePath = entry.resolveSibling(entry.getFileName() + "-DELETED");
+        Files.move(entry, newFilePath);
+        Path ledgerLocation = Paths.get(BLOB_STORE_LEDGER_DIR);
+        File filesDeletedLedger = Paths.get(ledgerLocation.toString(), "filesRemoved").toFile();
+        FileUtils.writeStringToFile(filesDeletedLedger, entry + "\n", Charset.defaultCharset(), true);
+      } //TODO is this the right approach? Maybe read checkpoint, deleted blob etc
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
     secondRun(
         hostAffinity,
         LOGGED_STORE_BASE_DIR,

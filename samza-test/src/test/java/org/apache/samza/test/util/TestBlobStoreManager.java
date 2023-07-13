@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +36,7 @@ import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.config.Config;
 import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.Metadata;
+import org.apache.samza.storage.blobstore.exceptions.DeletedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,6 +48,8 @@ public class TestBlobStoreManager implements BlobStoreManager {
   public static final String LEDGER_FILES_READ = "filesRead";
   public static final String LEDGER_FILES_DELETED = "filesRemoved";
   public static final String LEDGER_FILES_TTL_UPDATED = "filesTTLUpdated";
+
+  private final String deletedTombstone = "-DELETED";
 
   private final Path stateLocation;
   private final File filesAddedLedger;
@@ -113,13 +117,30 @@ public class TestBlobStoreManager implements BlobStoreManager {
   @Override
   public CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, Boolean getDeletedBlob) {
     LOG.info("Reading file at {}", id);
+    Path filePath = Paths.get(id);
     try {
       FileUtils.writeStringToFile(filesReadLedger, id + "\n", Charset.defaultCharset(), true);
-      Path path = Paths.get(id);
-      Files.copy(path, outputStream);
+      Files.copy(filePath, outputStream);
       outputStream.flush();
+    } catch (NoSuchFileException noSuchFileException) {
+      // Blob marked for deletion is suffixed with 'DELETED-'. Retrieve deleted blob if getDeletedBlob is True.
+      Path deletedFilePath = Paths.get(id + deletedTombstone);
+      String msg = String.format("File id: %s was not found. GetDeletedBlob was set to false", id);
+      if (!Files.exists(deletedFilePath)) {
+        throw new RuntimeException("404: " + msg, noSuchFileException);
+      }
+      if (getDeletedBlob) {
+        try {
+          Files.copy(deletedFilePath, outputStream);
+          outputStream.flush();
+        } catch (IOException e) {
+          throw new RuntimeException("Error reading file with GetDeleted set to true. File: " + id, e);
+        }
+      } else {
+        throw new DeletedException("410: " + msg, noSuchFileException);
+      }
     } catch (IOException e) {
-      throw new RuntimeException("Error reading file for id " + id, e);
+      throw new RuntimeException("Error reading file for id " + id + ". Get deleted was set to " + getDeletedBlob, e);
     }
     return CompletableFuture.completedFuture(null);
   }
@@ -129,7 +150,10 @@ public class TestBlobStoreManager implements BlobStoreManager {
     LOG.info("Deleting file at {}", id);
     try {
       FileUtils.writeStringToFile(filesDeletedLedger, id + "\n", Charset.defaultCharset(), true);
-      Files.delete(Paths.get(id));
+      // Suffix with 'DELETED' do not actually delete.
+      Files.move(Paths.get(id), Paths.get(id + deletedTombstone));
+    } catch (NoSuchFileException ex){
+      LOG.warn("File might already be deleted. id: " + id);
     } catch (IOException e) {
       throw new RuntimeException("Error deleting file for id " + id, e);
     }

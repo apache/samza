@@ -30,7 +30,7 @@ import java.util.{Base64, Optional}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.SamzaException
 import org.apache.samza.application.ApplicationUtil
-import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -780,11 +780,11 @@ class SamzaContainer(
       // TODO HIGH pmaheshw SAMZA-2338: since store restore needs to trim changelog messages,
       // need to start changelog producers before the stores, but stop them after stores.
       startProducers
-      startStores
+      val taskCheckpoints = startStores
       startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
-      startTask
+      startTask(taskCheckpoints)
       startConsumers
       startSecurityManger
 
@@ -981,7 +981,7 @@ class SamzaContainer(
     }
   }
 
-  def startStores {
+  def startStores: util.Map[TaskName, Checkpoint] = {
     info("Starting container storage manager.")
     containerStorageManager.start()
   }
@@ -993,10 +993,14 @@ class SamzaContainer(
     })
   }
 
-  def startTask {
+  def startTask(taskCheckpoints: util.Map[TaskName, Checkpoint]) {
     info("Initializing stream tasks.")
 
-    taskInstances.values.foreach(_.initTask)
+    taskInstances.keys.foreach { taskName =>
+      val taskInstance = taskInstances(taskName)
+      val checkpoint = taskCheckpoints.asScala.getOrElse(taskName, null)
+      taskInstance.initTask(checkpoint)
+    }
   }
 
   def startAdmins {

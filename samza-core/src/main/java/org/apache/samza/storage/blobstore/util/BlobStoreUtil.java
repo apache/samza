@@ -167,13 +167,7 @@ public class BlobStoreUtil {
     }
 
     try {
-      return FutureUtil.toFutureOfMap(t -> {
-        Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class, t);
-        if (unwrappedException instanceof DeletedException) {
-          LOG.warn("GetSnapshotIndex received DeletedException for taskName: {}", taskName, t);
-        }
-        return false;
-      }, storeSnapshotIndexFutures).join();
+      return FutureUtil.toFutureOfMap(storeSnapshotIndexFutures).join();
     } catch (Exception e) {
       throw new SamzaException(
           String.format("Error while waiting to get store snapshot indexes for task %s", taskName), e);

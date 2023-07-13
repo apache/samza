@@ -18,6 +18,7 @@
  */
 package org.apache.samza.storage;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
 import java.io.IOException;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -450,25 +452,30 @@ public class ContainerStorageManagerUtil {
         restoreManagers.forEach((factoryName, taskRestoreManager) -> {
           try {
             taskRestoreManager.init(taskCheckpoints.get(taskName));
-          } catch (DeletedException ex) {
-            LOG.warn("Init for BlobStoreRestoreManager failed with DeletedException for task: {}, checkpoint: {}. "
-                + "Retying with getDeletedEnabled", taskName, taskCheckpoints.get(taskName));
-            if (taskRestoreManager instanceof BlobStoreRestoreManager) {
-
+          } catch (SamzaException ex) {
+            Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class,
+                FutureUtil.unwrapExceptions(SamzaException.class, ex));
+            if (unwrappedException instanceof DeletedException && taskRestoreManager instanceof BlobStoreRestoreManager) {
+              LOG.warn("Init for BlobStoreRestoreManager failed with DeletedException for task: {}, checkpoint: {}. "
+                  + "Retying with getDeletedEnabled", taskName, taskCheckpoints.get(taskName));
               // try to get the deleted SnapshotIndexes, recreate new SnapshotIndex blobs and return a new StateCheckpointMarker
               Map<String, String> newSCMs =
                   getAndRecreateDeletedSnapshotIndexBlob(checkpointManager, taskName, config, executor,
-                      taskInstanceMetrics);
+                      taskInstanceMetrics, taskCheckpoints.get(taskName));
 
-              // Write a new checkpoint with new snapshot index blobs
-              CheckpointId checkpointId = CheckpointId.create();
-              Checkpoint newCheckpoint = writeNewCheckpoint(taskName, checkpointId, newSCMs, checkpointManager);
+              // New checkpoint with the new snapshot index blobs
+              Checkpoint newCheckpoint = writeNewCheckpoint(taskName, CheckpointId.create(), newSCMs, checkpointManager);
               //update TaskCheckpoints map with new checkpoint
               taskCheckpoints.put(taskName, newCheckpoint);
-
-              // init again - if it fails again, do not reattempt
-              BlobStoreRestoreManager blobStoreRestoreManager = (BlobStoreRestoreManager) taskRestoreManager;
-              blobStoreRestoreManager.init(taskCheckpoints.get(taskName), true);
+              // init again - if it fails again, there won't be any reattempts - give up and bubble up the exception
+              try {
+                taskRestoreManager.init(taskCheckpoints.get(taskName));
+              } catch (Exception exceptionAfterRetry) {
+                // log and rethrow exception to communicate restore failure
+                String msg = String.format("init failed for task: %s during retry after DeletedException", taskName);
+                LOG.error(msg, exceptionAfterRetry);
+                throw new SamzaException(msg, exceptionAfterRetry);
+              }
             }
           }
         }));
@@ -481,30 +488,6 @@ public class ContainerStorageManagerUtil {
 
     return restoreAllTaskInstances(taskRestoreManagers, taskBackendFactoryToStoreNames, jobContext, containerModel,
         samzaContainerMetrics, checkpointManager, config, taskInstanceMetrics, executor, loggerStoreDir);
-  }
-
-  private static Map<String, String> getAndRecreateDeletedSnapshotIndexBlob(CheckpointManager checkpointManager,
-      TaskName taskName, Config config, ExecutorService executor,
-      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics) {
-    Checkpoint oldCheckpoint = checkpointManager.readLastCheckpoint(taskName);
-
-    BlobStoreUtil blobStoreUtil =
-        new BlobStoreUtil(getBlobStoreManager(config, executor), executor, new BlobStoreConfig(config), null,
-            new BlobStoreRestoreManagerMetrics(taskInstanceMetrics.get(taskName).registry()));
-
-    // Get snapshot indexes with getDelete flag
-    Map<String, Pair<String, SnapshotIndex>> storeSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
-            taskName.getTaskName(), oldCheckpoint, ImmutableSet.copyOf(
-                new StorageConfig(config).getPersistentStoresWithBackupFactory(
-                    BlobStoreStateBackendFactory.class.getName())), true);
-
-    Map<String, CompletableFuture<String>> storeNameSnapshotIndexFuture = new HashMap<>();
-    storeSnapshotIndexes.forEach((store, blobIdSnapshotIndexPair) -> {
-      SnapshotIndex snapshotIndex = blobIdSnapshotIndexPair.getRight();
-      storeNameSnapshotIndexFuture.put(store, blobStoreUtil.putSnapshotIndex(snapshotIndex));
-    });
-    return FutureUtil.toFutureOfMap(storeNameSnapshotIndexFuture).join();
   }
 
   /**
@@ -599,7 +582,7 @@ public class ContainerStorageManagerUtil {
 
     if (!(taskRestoreManager instanceof BlobStoreRestoreManager)) {
       //this should not happen since DeletedException is thrown only from BlobStoreRestoreManager
-      LOG.warn("Won't reattempt restore for none blob store restore manager");
+      LOG.warn("Won't reattempt restore for non blob store restore manager");
       return null;
     }
 
@@ -632,14 +615,68 @@ public class ContainerStorageManagerUtil {
     });
   }
 
+  private static Map<String, String> getAndRecreateDeletedSnapshotIndexBlob(CheckpointManager checkpointManager,
+      TaskName taskName, Config config, ExecutorService executor,
+      Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, Checkpoint oldCheckpoint) {
+
+    BlobStoreManager blobStoreManager = getBlobStoreManager(config, executor);
+    BlobStoreUtil blobStoreUtil =
+        new BlobStoreUtil(blobStoreManager, executor, new BlobStoreConfig(config), null,
+            new BlobStoreRestoreManagerMetrics(taskInstanceMetrics.get(taskName).registry()));
+
+    // Get snapshot indexes with getDelete flag
+    // NOTE: A deleted SnapshotIndex could mean all the associated files/subdirs are marked for deletion too. However,
+    // we will not attempt to recreate them here. Restore (followed by the init) should take care of recreating them.
+    Map<String, Pair<String, SnapshotIndex>> storeSnapshotIndexes =
+        blobStoreUtil.getStoreSnapshotIndexes(new JobConfig(config).getName().get(), new JobConfig(config).getJobId(),
+            taskName.getTaskName(), oldCheckpoint, ImmutableSet.copyOf(
+                new StorageConfig(config).getPersistentStoresWithBackupFactory(
+                    BlobStoreStateBackendFactory.class.getName())), true);
+
+    Map<String, CompletableFuture<String>> storeNameSnapshotIndexFuture = new HashMap<>();
+
+    // Put the SnapshotIndex in Blob Store and remove TTL from the new blob
+    storeSnapshotIndexes.forEach((store, blobIdSnapshotIndexPair) -> {
+      SnapshotIndex snapshotIndex = blobIdSnapshotIndexPair.getRight();
+      storeNameSnapshotIndexFuture.put(store,
+          blobStoreUtil.putSnapshotIndex(snapshotIndex)
+          .thenCompose(blobId -> blobStoreManager.removeTTL(blobId, null) //TODO shesharm create request metadata
+              .thenApply(v -> blobId)));
+    });
+    CompletableFuture<Map<String, String>> storeNameSnapshotIndexIdsFuture =
+        FutureUtil.toFutureOfMap(storeNameSnapshotIndexFuture);
+
+    // Clean the old SnapshotIndex to avoid leaving garbage in the Blobstore
+    Map<String, CompletableFuture<Void>> storeNameOldSnapshotIndexDeleteFuture = new HashMap<>();
+    CheckpointV2 toDeleteCheckpoint = (CheckpointV2) oldCheckpoint;
+    toDeleteCheckpoint.getStateCheckpointMarkers().get(BlobStoreStateBackendFactory.class.getName())
+        .forEach((store, blobId) -> {
+          storeNameOldSnapshotIndexDeleteFuture.put(store,
+              blobStoreUtil.deleteSnapshotIndexBlob(blobId, null).toCompletableFuture()); //TODO shesharm create request metadata
+        });
+    CompletableFuture<Void> oldCheckpointsDeleteFuture =
+        CompletableFuture.allOf(storeNameOldSnapshotIndexDeleteFuture.values().toArray(new CompletableFuture[0]));
+
+    CompletableFuture.allOf(storeNameSnapshotIndexIdsFuture, oldCheckpointsDeleteFuture).join();
+
+    return storeNameSnapshotIndexIdsFuture.join();
+
+  }
+
   private static Checkpoint writeNewCheckpoint(TaskName taskName, CheckpointId checkpointId,
       Map<String, String> newSCMs, CheckpointManager checkpointManager) {
-    CheckpointV2 oldCheckpoint = (CheckpointV2) checkpointManager.readLastCheckpoint(taskName); //TODO add check?
+    CheckpointV2 oldCheckpoint = (CheckpointV2) checkpointManager.readLastCheckpoint(taskName);
     Map<SystemStreamPartition, String> checkpointOffsets = oldCheckpoint.getOffsets();
-    Map<String, Map<String, String>> stateCheckpointMarkers = oldCheckpoint.getStateCheckpointMarkers();
-    stateCheckpointMarkers.put(BlobStoreStateBackendFactory.class.getName(), newSCMs);
-    CheckpointV2 checkpointV2 = new CheckpointV2(checkpointId, checkpointOffsets, stateCheckpointMarkers);
-    checkpointManager.writeCheckpoint(taskName, checkpointV2); //TODO call flush on producer?
+
+    Map<String, Map<String, String>> oldStateCheckpointMarkers = oldCheckpoint.getStateCheckpointMarkers();
+
+    Map<String, Map<String, String>> newStateCheckpointMarkers = ImmutableMap.<String, Map<String, String>>builder()
+        .put(KafkaChangelogStateBackendFactory.class.getName(), oldStateCheckpointMarkers.get(KafkaChangelogStateBackendFactory.class.getName()))
+        .put(BlobStoreStateBackendFactory.class.getName(), newSCMs)
+        .build();
+
+    CheckpointV2 checkpointV2 = new CheckpointV2(checkpointId, checkpointOffsets, newStateCheckpointMarkers);
+    checkpointManager.writeCheckpoint(taskName, checkpointV2);
     return checkpointV2;
   }
 

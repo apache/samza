@@ -119,13 +119,6 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void init(Checkpoint checkpoint) {
-    init(checkpoint, false);
-  }
-
-  /**
-   * Attempts to init the restore manager by trying to do a get on deleted Blobs (SnapshotIndex here).
-   */
-  public void init(Checkpoint checkpoint, Boolean retryDeletedBlobs) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
 
@@ -133,7 +126,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
     // get previous SCMs from checkpoint
     prevStoreSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore, retryDeletedBlobs);
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
     LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {}",
         taskName, prevStoreSnapshotIndexes);
@@ -202,6 +195,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         Metadata requestMetadata =
             new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
         CompletionStage<Void> storeDeletionFuture =
+            //TODO shesharm do not fail if delete file/dir fail with DeletedException
             blobStoreUtil.cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
                 .thenComposeAsync(v ->
                     blobStoreUtil.deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present

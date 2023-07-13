@@ -205,9 +205,9 @@ public class ContainerStorageManager {
   }
 
 
-  public void start() throws SamzaException, InterruptedException {
+  public Map<TaskName, Checkpoint> start() throws SamzaException, InterruptedException {
     // Restores and recreates stores.
-    restoreStores();
+    Map<TaskName, Checkpoint> taskCheckpoints = restoreStores();
 
     // Shutdown restore executor since it will no longer be used
     try {
@@ -245,10 +245,11 @@ public class ContainerStorageManager {
     });
 
     isStarted = true;
+    return taskCheckpoints;
   }
 
   // Restoration of all stores, in parallel across tasks
-  private void restoreStores() throws InterruptedException {
+  private Map<TaskName, Checkpoint> restoreStores() throws InterruptedException {
     LOG.info("Store Restore started");
     Set<TaskName> activeTasks = ContainerStorageManagerUtil.getTasks(containerModel, TaskMode.Active).keySet();
     // Find all non-side input stores
@@ -348,6 +349,7 @@ public class ContainerStorageManager {
     });
 
     LOG.info("Store Restore complete");
+    return taskCheckpoints;
   }
 
   /**
