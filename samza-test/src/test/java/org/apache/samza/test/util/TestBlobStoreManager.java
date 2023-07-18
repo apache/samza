@@ -118,9 +118,9 @@ public class TestBlobStoreManager implements BlobStoreManager {
     LOG.info("Reading file at {}", id);
     Path filePath = Paths.get(id);
     try {
-      FileUtils.writeStringToFile(filesReadLedger, id + "\n", Charset.defaultCharset(), true);
       Files.copy(filePath, outputStream);
       outputStream.flush();
+      FileUtils.writeStringToFile(filesReadLedger, id + "\n", Charset.defaultCharset(), true);
     } catch (NoSuchFileException noSuchFileException) {
       // Blob marked for deletion is suffixed with 'DELETED-'. Retrieve deleted blob if getDeletedBlob is True.
       Path deletedFilePath = Paths.get(id + deletedTombstone);
@@ -132,6 +132,7 @@ public class TestBlobStoreManager implements BlobStoreManager {
         try {
           Files.copy(deletedFilePath, outputStream);
           outputStream.flush();
+          FileUtils.writeStringToFile(filesReadLedger, id + "\n", Charset.defaultCharset(), true);
         } catch (IOException e) {
           throw new RuntimeException("Error reading file with GetDeleted set to true. File: " + id, e);
         }

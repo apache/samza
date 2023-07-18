@@ -119,6 +119,10 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void init(Checkpoint checkpoint) {
+    init(checkpoint, false);
+  }
+
+  public void init(Checkpoint checkpoint, Boolean getDeletedBlob) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
 
@@ -126,7 +130,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
     // get previous SCMs from checkpoint
     prevStoreSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore);
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore, getDeletedBlob);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
     LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {}",
         taskName, prevStoreSnapshotIndexes);
@@ -259,8 +263,10 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         throw new SamzaException(String.format("Error deleting store directory: %s", storeDir), e);
       }
 
+      // If getDeletedBlobs is enabled - always restore so that we get all the blobs, including the deleted blobs,
+      // immediately restore it locally and backup to create new checkpoint.
       boolean shouldRestore = shouldRestore(taskName.getTaskName(), storeName, dirIndex,
-          storeCheckpointDir, storageConfig, dirDiffUtil);
+          storeCheckpointDir, storageConfig, dirDiffUtil) || getDeletedBlobs;
 
       if (shouldRestore) { // restore the store from the remote blob store
         // delete all store checkpoint directories. if we only delete the store directory and don't

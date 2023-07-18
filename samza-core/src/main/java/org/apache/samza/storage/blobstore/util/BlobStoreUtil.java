@@ -58,6 +58,7 @@ import org.apache.samza.storage.blobstore.BlobStoreManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
 import org.apache.samza.storage.blobstore.Metadata;
 import org.apache.samza.storage.blobstore.diff.DirDiff;
+import org.apache.samza.storage.blobstore.exceptions.DeletedException;
 import org.apache.samza.storage.blobstore.exceptions.RetriableException;
 import org.apache.samza.storage.blobstore.index.DirIndex;
 import org.apache.samza.storage.blobstore.index.FileBlob;
@@ -249,11 +250,19 @@ public class BlobStoreUtil {
   public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, SnapshotIndex snapshotIndex, Metadata requestMetadata) {
     DirIndex dirIndex = snapshotIndex.getDirIndex();
     CompletionStage<Void> storeDeletionFuture =
-        //TODO shesharm do not fail if delete fails with DeletedException
         cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
             .thenComposeAsync(v ->
                 deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
-            .thenComposeAsync(v -> deleteSnapshotIndexBlob(snapshotIndexBlobId, requestMetadata), executor); // delete the snapshot index blob
+            .thenComposeAsync(v -> deleteSnapshotIndexBlob(snapshotIndexBlobId, requestMetadata), executor) // delete the snapshot index blob
+            .exceptionally(ex -> {
+              if (ex instanceof DeletedException) {
+                LOG.warn("DeletedException received on trying to clean up SnapshotIndex {}. Ignoring the error.",
+                    snapshotIndexBlobId);
+                return null;
+              }
+              String msg = String.format("Error deleting/cleaning up SnapshotIndex: %s", snapshotIndexBlobId);
+              throw new SamzaException(msg, ex);
+            });
     return storeDeletionFuture;
   }
 
