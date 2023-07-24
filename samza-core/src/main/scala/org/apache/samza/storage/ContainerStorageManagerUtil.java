@@ -578,7 +578,7 @@ public class ContainerStorageManagerUtil {
     JobConfig jobConfig = new JobConfig(config);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(blobStoreManager, executor, new BlobStoreConfig(config), null,
-            new BlobStoreRestoreManagerMetrics(taskInstanceMetrics.get(taskName).registry()));
+            new BlobStoreRestoreManagerMetrics(metricsRegistry));
 
     BlobStoreRestoreManager blobStoreRestoreManager = (BlobStoreRestoreManager) taskRestoreManager;
 

@@ -109,11 +109,6 @@ public class TestBlobStoreManager implements BlobStoreManager {
   }
 
   @Override
-  public CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata) {
-    return get(id, outputStream, metadata, false);
-  }
-
-  @Override
   public CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, Boolean getDeletedBlob) {
     LOG.info("Reading file at {}", id);
     Path filePath = Paths.get(id);
