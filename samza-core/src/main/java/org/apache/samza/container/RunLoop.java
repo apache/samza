@@ -627,6 +627,7 @@ public class RunLoop implements Runnable, Throttleable {
         public TaskCallback createCallback() {
           state.startProcess();
           containerMetrics.processes().inc();
+          containerMetrics.containerRunning().set(1L);
           return isDraining && (envelope.isDrain() || envelope.isWatermark())
               ? callbackManager.createCallbackForDrain(task.taskName(), envelope, coordinator, drainCallbackTimeoutMs)
               : callbackManager.createCallback(task.taskName(), envelope, coordinator);

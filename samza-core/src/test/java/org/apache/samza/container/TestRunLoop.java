@@ -107,6 +107,7 @@ public class TestRunLoop {
     verify(task1).process(eq(envelopeA11), any(), any());
 
     assertEquals(4L, containerMetrics.envelopes().getCount());
+    assertEquals(1L, containerMetrics.containerRunning().getValue());
   }
 
   @Test
