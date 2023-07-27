@@ -107,7 +107,6 @@ public class TestRunLoop {
     verify(task1).process(eq(envelopeA11), any(), any());
 
     assertEquals(4L, containerMetrics.envelopes().getCount());
-    assertEquals(1L, containerMetrics.containerRunning().getValue());
   }
 
   @Test
@@ -178,6 +177,7 @@ public class TestRunLoop {
     verify(offsetManager).update(eq(taskName0), eq(sspA0), eq(envelopeA00.getOffset()));
 
     assertEquals(2L, containerMetrics.processes().getCount());
+    assertEquals(1L, containerMetrics.containerRunning().getValue());
   }
 
   @Test
