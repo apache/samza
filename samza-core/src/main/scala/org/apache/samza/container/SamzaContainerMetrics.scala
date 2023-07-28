@@ -52,6 +52,7 @@ class SamzaContainerMetrics(
   val totalProcessCpuUsage = newGauge("total-process-cpu-usage", 0.0)
   val containerThreadPoolSize = newGauge("container-thread-pool-size", 0L)
   val containerActiveThreads = newGauge("container-active-threads", 0L)
+  val containerRunning = newGauge("container-running", 0L)
 
   val taskStoreRestorationMetrics: util.Map[TaskName, Gauge[Long]] = new util.HashMap[TaskName, Gauge[Long]]()
 

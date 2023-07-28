@@ -627,6 +627,8 @@ public class RunLoop implements Runnable, Throttleable {
         public TaskCallback createCallback() {
           state.startProcess();
           containerMetrics.processes().inc();
+          // report 1 whenever the contaienr is running. Can be used to calculate the number of containers not running
+          containerMetrics.containerRunning().set(1L);
           return isDraining && (envelope.isDrain() || envelope.isWatermark())
               ? callbackManager.createCallbackForDrain(task.taskName(), envelope, coordinator, drainCallbackTimeoutMs)
               : callbackManager.createCallback(task.taskName(), envelope, coordinator);
