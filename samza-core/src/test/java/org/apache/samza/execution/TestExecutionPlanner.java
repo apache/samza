@@ -654,8 +654,8 @@ public class TestExecutionPlanner {
   }
 
   @Test
-  public void testMaxPartitionLimit() {
-    int partitionLimit = IntermediateStreamManager.MAX_INFERRED_PARTITIONS;
+  public void testMaxPartitionLimitIsIgnoredForStreamingMode() {
+    int expectedPartitionSize = IntermediateStreamManager.MAX_INFERRED_PARTITIONS * 2;
 
     ExecutionPlanner planner = new ExecutionPlanner(config, streamManager);
     StreamApplicationDescriptorImpl graphSpec = new StreamApplicationDescriptorImpl(appDesc -> {
@@ -668,7 +668,7 @@ public class TestExecutionPlanner {
 
     // Partitions should be the same as input1
     jobGraph.getIntermediateStreams().forEach(edge -> {
-      assertEquals(partitionLimit, edge.getPartitionCount()); // max of input1 and output1
+      assertEquals(expectedPartitionSize, edge.getPartitionCount()); // max of input1 and output1
     });
   }
 

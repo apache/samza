@@ -50,9 +50,8 @@ public class DefaultTaskExecutorFactory implements TaskExecutorFactory {
    * {@inheritDoc}
    *
    * The choice of thread pool is determined based on the following logic
-   *    If job.operator.thread.pool.enabled,
-   *     a. Use {@link #getTaskExecutor(Config)} if job.container.thread.pool.size &gt; 1
-   *     b. Use default single threaded pool otherwise
+   *     1. Use {@link #getTaskExecutor(Config)} if job.container.thread.pool.size &gt; 1
+   *     2. Use default single threaded pool otherwise
    * <b>Note:</b> The default single threaded pool used is a substitute for the scenario where container thread pool is null and
    * the messages are dispatched on runloop thread. We can't have the stages schedule on the run loop thread and hence
    * the fallback to use a single threaded executor across all tasks.
