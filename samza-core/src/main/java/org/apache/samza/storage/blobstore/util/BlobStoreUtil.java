@@ -615,6 +615,15 @@ public class BlobStoreUtil {
   }
 
   /**
+   * For each store backed up on the blob store, get the {@link SnapshotIndex} and marks all the blobs associated with
+   * it to never expire, including the SnapshotIndex itself.
+   */
+  public CompletableFuture<Void> getSnapshotIndexAndRemoveTTL(String scm, Metadata requestMetadata) {
+    return getSnapshotIndex(scm, requestMetadata, false)
+        .thenCompose(snapshotIndex -> removeTTL(scm, snapshotIndex, requestMetadata));
+  }
+
+  /**
    * Recursively mark all the blobs associated with the {@link DirIndex} to never expire (remove TTL).
    * @param dirIndex the {@link DirIndex} whose contents' TTL needs to be removed
    * @param metadata {@link Metadata} related to the request
@@ -651,7 +660,6 @@ public class BlobStoreUtil {
 
     return CompletableFuture.allOf(updateTTLsFuture.toArray(new CompletableFuture[0]));
   }
-
 
   /**
    * Marks all the blobs associated with an {@link SnapshotIndex} to never expire, including the new SnapshotIndex

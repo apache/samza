@@ -24,13 +24,12 @@ import java.io.File;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
@@ -307,26 +306,25 @@ public class ContainerStorageManager {
       taskBackendFactoryToStoreNames.put(taskName, backendFactoryToStoreNames);
     });
 
-    // Init all taskRestores and if successful, restores all the task store concurrently
-    List<Future<Void>> taskRestoreFutures =
+    // Init all taskRestores and if successful, restores all the task stores concurrently
+    CompletableFuture<Map<TaskName, Checkpoint>> initRestoreAndNewCheckpointFuture =
         ContainerStorageManagerUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
             checkpointManager, jobContext, containerModel, taskCheckpoints, taskBackendFactoryToStoreNames, config,
             restoreExecutor, taskInstanceMetrics, loggedStoreBaseDirectory, storeConsumers);
 
-    // Loop-over the future list to wait for each restore to finish, catch any exceptions during restore and throw
-    // as samza exceptions
-    for (Future<Void> future : taskRestoreFutures) {
-      try {
-        future.get();
-      } catch (InterruptedException e) {
-        LOG.warn("Received an interrupt during store restoration. Interrupting the restore executor to exit "
-            + "prematurely without restoring full state.");
-        restoreExecutor.shutdownNow();
-        throw e;
-      } catch (Exception e) {
-        LOG.error("Exception when restoring state.", e);
-        throw new SamzaException("Exception when restoring state.", e);
-      }
+    // Update the task checkpoints map, if it was updated during the restore. Throw an exception if the restore or
+    // creating a new checkpoint (in case of BlobStoreBackendFactory) failed.
+    try {
+      Map<TaskName, Checkpoint> newTaskCheckpoints = initRestoreAndNewCheckpointFuture.get();
+      taskCheckpoints.putAll(newTaskCheckpoints);
+    } catch (InterruptedException e) {
+      LOG.warn("Received an interrupt during store restoration. Interrupting the restore executor to exit "
+          + "prematurely without restoring full state.");
+      restoreExecutor.shutdownNow();
+      throw e;
+    } catch (Exception e) {
+      LOG.error("Exception when restoring state.", e);
+      throw new SamzaException("Exception when restoring state.", e);
     }
 
     // Stop each store consumer once

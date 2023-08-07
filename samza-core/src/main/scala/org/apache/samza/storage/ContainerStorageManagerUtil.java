@@ -32,7 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
@@ -442,9 +442,9 @@ public class ContainerStorageManagerUtil {
   /**
    * Inits and Restores all the task stores.
    * Note: In case of {@link BlobStoreRestoreManager}, this method retries init and restore with getDeleted flag if it
-   * receives a {@link DeletedException}.
+   * receives a {@link DeletedException}. This will create a new checkpoint for the corresponding task.
    */
-  public static List<Future<Void>> initAndRestoreTaskInstances(
+  public static CompletableFuture<Map<TaskName, Checkpoint>> initAndRestoreTaskInstances(
       Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers, SamzaContainerMetrics samzaContainerMetrics,
       CheckpointManager checkpointManager, JobContext jobContext, ContainerModel containerModel,
       Map<TaskName, Checkpoint> taskCheckpoints, Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames,
@@ -488,16 +488,16 @@ public class ContainerStorageManagerUtil {
   /**
    * Restores all TaskInstances and returns a future for each TaskInstance restore.
    * Note: In case of {@link BlobStoreRestoreManager}, this method restore with getDeleted flag if it
-   *       receives a {@link DeletedException}.
-   * @param taskRestoreManagers map of TaskName to factory name to TaskRestoreManager map.
+   *       receives a {@link DeletedException}. This will create a new Checkpoint.
    */
-  public static List<Future<Void>> restoreAllTaskInstances(
+  public static CompletableFuture<Map<TaskName, Checkpoint>> restoreAllTaskInstances(
       Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers, Map<TaskName, Checkpoint> taskCheckpoints,
       Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames, JobContext jobContext,
       ContainerModel containerModel, SamzaContainerMetrics samzaContainerMetrics, CheckpointManager checkpointManager,
       Config config, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ExecutorService executor,
       File loggedStoreDir, Set<String> forceRestoreTask) {
 
+    Map<TaskName, Checkpoint> newTaskCheckpoints = new ConcurrentHashMap<>();
     List<Future<Void>> taskRestoreFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
@@ -531,14 +531,13 @@ public class ContainerStorageManagerUtil {
 
               // Try to restore with getDeleted flag
               CompletableFuture<Checkpoint> future =
-                  restoreTaskStoresAndCreateCheckpointWithGetDeleted(taskInstanceName, taskCheckpoints,
+                  restoreDeletedSnapshot(taskInstanceName, taskCheckpoints,
                       checkpointManager, taskRestoreManager, config, taskInstanceMetrics, executor,
                       taskBackendFactoryToStoreNames.get(taskInstanceName).get(factoryName), loggedStoreDir,
                       jobContext, containerModel);
               try {
                 if (future != null) {
-                  Checkpoint checkpoint = future.join();
-                  taskCheckpoints.put(taskInstanceName, checkpoint);
+                  newTaskCheckpoints.put(taskInstanceName, future.join());
                 }
               } catch (Exception e) {
                 String msg =
@@ -570,8 +569,8 @@ public class ContainerStorageManagerUtil {
         taskRestoreFutures.add(taskRestoreFuture);
       });
     });
-
-    return taskRestoreFutures;
+    CompletableFuture<Void> allFutures = CompletableFuture.allOf(taskRestoreFutures.toArray(new CompletableFuture[0]));
+    return allFutures.thenApply(ignoredVoid -> newTaskCheckpoints);
   }
 
   /**
@@ -582,7 +581,7 @@ public class ContainerStorageManagerUtil {
    *   4. Clean up old/deleted Snapshot
    *   5. Create and write the new checkpoint to checkpoint topic
    */
-  private static CompletableFuture<Checkpoint> restoreTaskStoresAndCreateCheckpointWithGetDeleted(TaskName taskName,
+  private static CompletableFuture<Checkpoint> restoreDeletedSnapshot(TaskName taskName,
       Map<TaskName, Checkpoint> taskCheckpoints, CheckpointManager checkpointManager,
       TaskRestoreManager taskRestoreManager, Config config, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
       ExecutorService executor, Set<String> storesToRestore, File loggedStoreBaseDirectory, JobContext jobContext,
@@ -609,25 +608,41 @@ public class ContainerStorageManagerUtil {
     // 1. Restore state with getDeleted flag set to true
     CompletableFuture<Void> restoreFuture = blobStoreRestoreManager.restore(true);
 
-    // 2. Create and backup new checkpoint on the blob store
+    // 2. Create a new checkpoint and back it up on the blob store
     CompletableFuture<Map<String, String>> backupStoresFuture = restoreFuture.thenCompose(
-        r -> backupStores(jobContext, containerModel, config, taskName, storesToRestore, checkpointId,
-            loggedStoreBaseDirectory, blobStoreManager, metricsRegistry, executor));
+      r -> backupRecoveredStore(jobContext, containerModel, config, taskName, storesToRestore, checkpointId,
+          loggedStoreBaseDirectory, blobStoreManager, metricsRegistry, executor));
 
     // 3. Mark new Snapshots to never expire
     // Note: pass future uploadSCMs from backup as return because removeTTLNewSnapshots needs it.
     CompletableFuture<Void> removeNewSnapshotsTTLFuture = backupStoresFuture.thenCompose(
-        scms -> FutureUtil.mapToFuture(removeTTLNewSnapshots(blobStoreUtil, scms, taskName, jobConfig)));
+      storeSCMs -> {
+        List<CompletableFuture<Void>> removeSnapshotTTLFutures = new ArrayList<>();
+        storeSCMs.forEach((store, scm) -> {
+          Metadata requestMetadata = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(),
+              jobConfig.getName().get(), jobConfig.getJobId(), taskName.getTaskName(), store);
+          removeSnapshotTTLFutures.add(blobStoreUtil.getSnapshotIndexAndRemoveTTL(scm, requestMetadata));
+        });
+        return CompletableFuture.allOf(removeSnapshotTTLFutures.toArray(new CompletableFuture[0]));
+      });
 
     // 4. Delete prev SnapshotIndex including files/subdirs
     // Note: pass uploadSCMs future from upload as return because writeNewCheckpoint needs it.
     CompletableFuture<Void> deleteOldSnapshotsFuture = removeNewSnapshotsTTLFuture.thenCompose(
-        scms -> FutureUtil.mapToFuture(deletePrevSnapshots(blobStoreUtil, oldSCMs, taskName, jobConfig)));
+      ignore -> {
+        List<CompletableFuture<Void>> deletePrevSnapshotFutures = new ArrayList<>();
+        oldSCMs.forEach((store, oldSCM) -> {
+          Metadata requestMetadata = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(),
+              jobConfig.getName().get(), jobConfig.getJobId(), taskName.getTaskName(), store);
+          deletePrevSnapshotFutures.add(blobStoreUtil.cleanSnapshotIndex(oldSCM, requestMetadata, true).toCompletableFuture());
+        });
+        return CompletableFuture.allOf(deletePrevSnapshotFutures.toArray(new CompletableFuture[0]));
+      });
 
     // 5. create new checkpoint
     CompletableFuture<Checkpoint> newTaskCheckpointsFuture =
-        deleteOldSnapshotsFuture.thenApply(scms ->
-            writeNewCheckpoint(taskName, checkpointId, backupStoresFuture.join(), checkpointManager));
+      deleteOldSnapshotsFuture.thenApply(scms ->
+          writeNewCheckpoint(taskName, checkpointId, backupStoresFuture.join(), checkpointManager));
 
     return newTaskCheckpointsFuture.exceptionally(ex -> {
       String msg = String.format("Could not restore task: %s after attempting to restore deleted blobs.", taskName);
@@ -635,7 +650,7 @@ public class ContainerStorageManagerUtil {
     });
   }
 
-  private static CompletableFuture<Map<String, String>> backupStores(JobContext jobContext,
+  private static CompletableFuture<Map<String, String>> backupRecoveredStore(JobContext jobContext,
       ContainerModel containerModel, Config config, TaskName taskName, Set<String> storesToBackup,
       CheckpointId newCheckpointId, File loggedStoreBaseDirectory, BlobStoreManager blobStoreManager,
       MetricsRegistry metricsRegistry, ExecutorService executor) {
@@ -712,33 +727,5 @@ public class ContainerStorageManagerUtil {
     Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class,
         FutureUtil.unwrapExceptions(SamzaException.class, ex));
     return unwrappedException instanceof DeletedException;
-  }
-
-  private static Metadata createSnapshotRequestMetadata(TaskName taskName, JobConfig jobConfig, String store) {
-    return new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(),
-        jobConfig.getName().get(), jobConfig.getJobId(), taskName.getTaskName(), store);
-  }
-
-  private static Map<String, CompletionStage<Void>> deletePrevSnapshots(BlobStoreUtil blobStoreUtil,
-      Map<String, String> oldSCMs, TaskName taskName, JobConfig jobConfig) {
-    Map<String, CompletionStage<Void>> deleteOldSnapshotsFutures = new HashMap<>();
-    oldSCMs.forEach((store, scm) -> {
-      deleteOldSnapshotsFutures.put(store,
-          blobStoreUtil.cleanSnapshotIndex(scm, createSnapshotRequestMetadata(taskName, jobConfig, store), true));
-    });
-    return deleteOldSnapshotsFutures;
-  }
-
-  private static Map<String, CompletionStage<Void>> removeTTLNewSnapshots(BlobStoreUtil blobStoreUtil,
-      Map<String, String> scms, TaskName taskName, JobConfig jobConfig) {
-    Map<String, CompletionStage<Void>> removeTTLNewSnapshotsFutures = new HashMap<>();
-    scms.forEach((store, scm) -> {
-      removeTTLNewSnapshotsFutures.put(store,
-          blobStoreUtil.getSnapshotIndex(scm, createSnapshotRequestMetadata(taskName, jobConfig, store), false)
-              .thenCompose(snapshotIndex ->
-                  blobStoreUtil.removeTTL(scm, snapshotIndex,
-                      createSnapshotRequestMetadata(taskName, jobConfig, store))));
-    });
-    return removeTTLNewSnapshotsFutures;
   }
 }
