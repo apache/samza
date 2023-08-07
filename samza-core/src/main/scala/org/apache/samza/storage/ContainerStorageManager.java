@@ -204,7 +204,11 @@ public class ContainerStorageManager {
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(RESTORE_THREAD_NAME).build());
   }
 
-
+  /**
+   * Starts all the task stores.
+   * Returns the latest checkpoint for each task. This checkpoint may be different from the lastCheckpoint returned by
+   * checkpoint manager in case of a BlobStoreRestoreManager.
+   */
   public Map<TaskName, Checkpoint> start() throws SamzaException, InterruptedException {
     // Restores and recreates stores.
     Map<TaskName, Checkpoint> taskCheckpoints = restoreStores();
@@ -303,7 +307,7 @@ public class ContainerStorageManager {
       taskBackendFactoryToStoreNames.put(taskName, backendFactoryToStoreNames);
     });
 
-    // Init all taskRestores and if successful, create a future for restores for each task
+    // Init all taskRestores and if successful, restores all the task store concurrently
     List<Future<Void>> taskRestoreFutures =
         ContainerStorageManagerUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
             checkpointManager, jobContext, containerModel, taskCheckpoints, taskBackendFactoryToStoreNames, config,

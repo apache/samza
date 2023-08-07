@@ -133,7 +133,7 @@ public class TestBlobStoreBackupManager {
 
     // Mock - return snapshot index for blob id from test blob store map
     ArgumentCaptor<String> captor = ArgumentCaptor.forClass(String.class);
-    when(blobStoreUtil.getSnapshotIndex(captor.capture(), any(Metadata.class)))
+    when(blobStoreUtil.getSnapshotIndex(captor.capture(), any(Metadata.class), anyBoolean()))
         .then((Answer<CompletableFuture<SnapshotIndex>>) invocation -> {
           String blobId = invocation.getArgumentAt(0, String.class);
           return CompletableFuture.completedFuture(testBlobStore.get(blobId));
@@ -169,7 +169,8 @@ public class TestBlobStoreBackupManager {
     // verify delete snapshot index blob called from init 0 times because prevSnapshotMap returned from init is empty
     // in case of null checkpoint.
     verify(blobStoreUtil, times(0)).deleteSnapshotIndexBlob(anyString(), any(Metadata.class));
-    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
+    when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class),
+        anySetOf(String.class), anyBoolean())).thenCallRealMethod();
 
     // init called with Checkpoint V1 -> unsupported
     Checkpoint checkpoint = new CheckpointV1(new HashMap<>());
@@ -299,7 +300,7 @@ public class TestBlobStoreBackupManager {
         new CheckpointV2(checkpointId, new HashMap<>(),
             ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), previousCheckpoints));
     when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class),
-        anySetOf(String.class))).thenCallRealMethod();
+        anySetOf(String.class), anyBoolean())).thenCallRealMethod();
     when(blobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(), any(Checkpoint.class),
         anySetOf(String.class), anyBoolean())).thenCallRealMethod();
     blobStoreBackupManager.init(checkpoint);

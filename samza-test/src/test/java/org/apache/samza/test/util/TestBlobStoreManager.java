@@ -100,16 +100,17 @@ public class TestBlobStoreManager implements BlobStoreManager {
         metadata.getTaskName(), metadata.getStoreName(), suffix);
     LOG.info("Creating file at {}", destination);
     try {
-      FileUtils.writeStringToFile(filesAddedLedger, destination + "\n", Charset.defaultCharset(), true);
       FileUtils.copyInputStreamToFile(inputStream, destination.toFile());
+      FileUtils.writeStringToFile(filesAddedLedger, destination + "\n", Charset.defaultCharset(), true);
     } catch (IOException e) {
+      LOG.error("Error creating file: " + destination);
       throw new RuntimeException("Error creating file " + destination, e);
     }
     return CompletableFuture.completedFuture(destination.toString());
   }
 
   @Override
-  public CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, Boolean getDeletedBlob) {
+  public CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, boolean getDeletedBlob) {
     LOG.info("Reading file at {}", id);
     Path filePath = Paths.get(id);
     try {
@@ -128,10 +129,12 @@ public class TestBlobStoreManager implements BlobStoreManager {
           Files.copy(deletedFilePath, outputStream);
           outputStream.flush();
           FileUtils.writeStringToFile(filesReadLedger, id + "\n", Charset.defaultCharset(), true);
+          LOG.info("Deleted File id {} found - Get deleted was set to true", id);
         } catch (IOException e) {
           throw new RuntimeException("Error reading file with GetDeleted set to true. File: " + id, e);
         }
       } else {
+        LOG.info("File id {} is deleted - Get deleted was set to false", id);
         throw new DeletedException("410: " + msg, noSuchFileException);
       }
     } catch (IOException e) {

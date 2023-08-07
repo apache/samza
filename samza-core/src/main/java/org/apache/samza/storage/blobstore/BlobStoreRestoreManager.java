@@ -119,9 +119,17 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void init(Checkpoint checkpoint) {
+    // By default, init without retrying deleted SnapshotIndex blob
     init(checkpoint, false);
   }
 
+  /**
+   * Initialize state resources such as store directories.
+   * NOTE: init can be called twice. In case init fails with DeletedException for the first time, it will be retried with
+   *       getDeletedBlob set to true.
+   * @param checkpoint Current task checkpoint
+   * @param getDeletedBlob Flag to get deleted SnapshotIndex blob
+   */
   public void init(Checkpoint checkpoint, Boolean getDeletedBlob) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
@@ -155,13 +163,19 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @Override
   public CompletableFuture<Void> restore() {
     return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
-        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor);
+        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, false);
   }
 
-  public CompletableFuture<Void> restore(Boolean restoreDeleted) {
+  /**
+   * Restore state from checkpoints and state snapshots.
+   * @param restoreDeleted This flag forces the restore to always download the state from blob store with the get deleted
+   *                       flag enabled.
+   */
+  public CompletableFuture<Void> restore(boolean restoreDeleted) {
     return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir, storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, restoreDeleted);
   }
+
   @Override
   public void close() {
     blobStoreManager.close();
@@ -212,16 +226,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
-      ExecutorService executor) {
-    return restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir, storageConfig,
-        metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, false);
-  }
-
-  public static CompletableFuture<Void> restoreStores(String jobName, String jobId, TaskName taskName, Set<String> storesToRestore,
-      Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
-      File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
-      StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
-      ExecutorService executor, Boolean getDeletedBlobs) {
+      ExecutorService executor, boolean getDeletedBlobs) {
     long restoreStartTime = System.nanoTime();
     List<CompletionStage<Void>> restoreFutures = new ArrayList<>();
     LOG.debug("Starting restore for task: {} stores: {}", taskName, storesToRestore);
@@ -264,9 +269,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       }
 
       // If getDeletedBlobs is enabled - always restore so that we get all the blobs, including the deleted blobs,
-      // immediately restore it locally and backup to create new checkpoint.
-      boolean shouldRestore = shouldRestore(taskName.getTaskName(), storeName, dirIndex,
-          storeCheckpointDir, storageConfig, dirDiffUtil) || getDeletedBlobs;
+      // and immediately restore it locally, which is to be backed up later to create a new snapshot.
+      boolean shouldRestore = getDeletedBlobs || shouldRestore(taskName.getTaskName(), storeName, dirIndex,
+          storeCheckpointDir, storageConfig, dirDiffUtil);
 
       if (shouldRestore) { // restore the store from the remote blob store
         // delete all store checkpoint directories. if we only delete the store directory and don't
@@ -340,7 +345,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @VisibleForTesting
   static void enqueueRestore(String jobName, String jobId, String taskName, String storeName, File storeDir, DirIndex dirIndex,
       long storeRestoreStartTime, List<CompletionStage<Void>> restoreFutures, BlobStoreUtil blobStoreUtil,
-      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor, Boolean getDeleted) {
+      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor, boolean getDeleted) {
 
     Metadata requestMetadata = new Metadata(storeDir.getAbsolutePath(), Optional.empty(), jobName, jobId, taskName, storeName);
     CompletableFuture<Void> restoreFuture =

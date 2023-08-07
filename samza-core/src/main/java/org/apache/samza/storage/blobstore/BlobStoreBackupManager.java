@@ -290,7 +290,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         Metadata requestMetadata =
             new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
         CompletionStage<SnapshotIndex> snapshotIndexFuture =
-            blobStoreUtil.getSnapshotIndex(snapshotIndexBlobId, requestMetadata);
+            blobStoreUtil.getSnapshotIndex(snapshotIndexBlobId, requestMetadata, false);
 
         // 1. remove TTL of index blob and all of its files and sub-dirs marked for retention
         CompletionStage<Void> removeTTLFuture =
@@ -329,7 +329,12 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     });
 
     return FutureUtil.allOf(removeTTLFutures, cleanupRemoteSnapshotFutures, removePrevRemoteSnapshotFutures)
-        .whenComplete((res, ex) -> metrics.cleanupNs.update(System.nanoTime() - startTime));
+        .whenComplete((res, ex) -> {
+          if (ex != null) {
+            LOG.error("Could not finish cleanup. Checkpoint id: {}, store SCMs: {}", checkpointId, storeSCMs, ex);
+          }
+          metrics.cleanupNs.update(System.nanoTime() - startTime);
+        });
   }
 
   @Override

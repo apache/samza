@@ -204,7 +204,7 @@ public class TestBlobStoreRestoreManager {
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
     verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
@@ -256,7 +256,7 @@ public class TestBlobStoreRestoreManager {
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
     verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
@@ -312,7 +312,7 @@ public class TestBlobStoreRestoreManager {
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was not called (should have restored from checkpoint dir)
     verify(blobStoreUtil, times(0)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
@@ -349,7 +349,7 @@ public class TestBlobStoreRestoreManager {
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that we checked the previously checkpointed SCMs.
     verify(prevStoreSnapshotIndexes, times(1)).containsKey(eq("newStoreName"));

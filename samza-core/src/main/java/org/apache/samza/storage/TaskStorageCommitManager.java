@@ -96,19 +96,13 @@ public class TaskStorageCommitManager {
   public void init(Checkpoint checkpoint) {
     // Assuming that container storage manager has already started and created to stores
     storageEngines = containerStorageManager.getAllStores(taskName);
-    if (checkpointManager != null) {
-      // In case of standby containers
-      if (checkpoint == null) {
-        checkpoint = checkpointManager.readLastCheckpoint(taskName);
-      }
+    final Checkpoint[] finalCheckpoint = new Checkpoint[]{checkpoint};
+    if (checkpoint == null && checkpointManager != null) {
+      finalCheckpoint[0] = checkpointManager.readLastCheckpoint(taskName);
       LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, checkpoint);
-      Checkpoint finalCheckpoint = checkpoint;
-      stateBackendToBackupManager.values()
-          .forEach(storageBackupManager -> storageBackupManager.init(finalCheckpoint));
-    } else {
-      stateBackendToBackupManager.values()
-          .forEach(storageBackupManager -> storageBackupManager.init(null));
     }
+    stateBackendToBackupManager.values()
+        .forEach(storageBackupManager -> storageBackupManager.init(finalCheckpoint[0]));
   }
 
   /**

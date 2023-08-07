@@ -981,6 +981,12 @@ class SamzaContainer(
     }
   }
 
+  /**
+   * Starts all the stores by restoring and recreating the stores, if necessary
+   * @return Returns checkpoint associated with each task.
+   *         Note: In case of blob store manager, returned checkpoints for a task may contain a checkpoint recreated on
+   *         blob store, in case the previous one was recently deleted. More details in SAMZA-2787
+   */
   def startStores: util.Map[TaskName, Checkpoint] = {
     info("Starting container storage manager.")
     containerStorageManager.start()
@@ -993,13 +999,20 @@ class SamzaContainer(
     })
   }
 
+  /**
+   * Init all task instances
+   * @param taskCheckpoints last checkpoint for a TaskName. This last checkpoint could be different from the one returned
+   *                        from CommitManager#getLastCheckpoint. The new checkpoint could be created in case the last
+   *                        checkpoint was recently deleted and BlobStoreManager could recover it. More details in
+   *                        SAMZA-2787
+   */
   def startTask(taskCheckpoints: util.Map[TaskName, Checkpoint]) {
     info("Initializing stream tasks.")
 
     taskInstances.keys.foreach { taskName =>
       val taskInstance = taskInstances(taskName)
       val checkpoint = taskCheckpoints.asScala.getOrElse(taskName, null)
-      taskInstance.initTask(checkpoint)
+      taskInstance.initTask(Some(checkpoint))
     }
   }
 

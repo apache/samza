@@ -50,6 +50,7 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
@@ -528,14 +529,28 @@ public class TestContainerStorageManager {
     when(taskRestoreManager.restore()).thenReturn(CompletableFuture.completedFuture(null));
     when(taskRestoreManager.restore(true)).thenReturn(CompletableFuture.completedFuture(null));
 
+    // mock ReflectionUtil.getObj
+    PowerMockito.mockStatic(ReflectionUtil.class);
+    BlobStoreManagerFactory blobStoreManagerFactory = mock(BlobStoreManagerFactory.class);
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    PowerMockito.when(ReflectionUtil.getObj(anyString(), eq(BlobStoreManagerFactory.class)))
+        .thenReturn(blobStoreManagerFactory);
+    when(blobStoreManagerFactory.getRestoreBlobStoreManager(any(Config.class), any(ExecutorService.class)))
+        .thenReturn(blobStoreManager);
+
     Map<String, TaskRestoreManager> storeTaskRestoreManager = ImmutableMap.of("store", taskRestoreManager);
     CheckpointManager checkpointManager = mock(CheckpointManager.class);
     JobContext jobContext = mock(JobContext.class);
+    when(jobContext.getJobModel()).thenReturn(mock(JobModel.class));
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(new TaskName("test"));
     ContainerModel containerModel = mock(ContainerModel.class);
-    Map<TaskName, Checkpoint> taskCheckpoints = new HashMap<>();
+    when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
+    Checkpoint checkpoint = mock(CheckpointV2.class);
+    Map<TaskName, Checkpoint> taskCheckpoints = ImmutableMap.of(taskName, checkpoint);
     Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames =
         ImmutableMap.of(taskName, ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), stores));
-    Config config = new MapConfig();
+    Config config = new MapConfig(ImmutableMap.of("job.name", "test"), ImmutableMap.of("stores.store.backup.factories", BlobStoreStateBackendFactory.class.getName()));
     ExecutorService executor = Executors.newSingleThreadExecutor();
     SystemConsumer systemConsumer = mock(SystemConsumer.class);
 
@@ -547,7 +562,7 @@ public class TestContainerStorageManager {
     // verify init() is called twice -> once without getDeleted flag, once with getDeleted flag
     verify(taskRestoreManager, times(1)).init(any(Checkpoint.class));
     verify(taskRestoreManager, times(1)).init(any(Checkpoint.class), anyBoolean());
-    // verify restore is called with getDeletedFlag
+    // verify restore is called with getDeletedFlag only
     verify(taskRestoreManager, times(0)).restore();
     verify(taskRestoreManager, times(1)).restore(true);
   }

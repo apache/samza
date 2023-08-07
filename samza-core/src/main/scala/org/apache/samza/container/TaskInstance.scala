@@ -149,19 +149,26 @@ class TaskInstance(
     }
   }
 
-  def initTask(lastTaskCheckpoint: Checkpoint) {
+  def initTask(lastTaskCheckpoint: Option[Checkpoint]) {
     initCaughtUpMapping()
 
     val isStandByTask = taskModel.getTaskMode == TaskMode.Standby
+    var checkpoint: Checkpoint = lastTaskCheckpoint.orNull
 
     if (commitManager != null) {
       debug("Starting commit manager for taskName: %s" format taskName)
-      commitManager.init(if (isStandByTask) null else lastTaskCheckpoint)
+      if (isStandByTask) {
+        debug("Standby task: %s Passing null to init for taskName %s:" format (isStandByTask, taskName))
+        // pass null in case of standby task. This is to ensure, checkpoint is always read from checkpoint topic
+        commitManager.init(null)
+      } else {
+        debug("init taskName %s with Checkpoint %s" format(taskName, checkpoint))
+        commitManager.init(checkpoint)
+      }
     } else {
       debug("Skipping commit manager initialization for taskName: %s" format taskName)
     }
 
-    var checkpoint: Checkpoint = lastTaskCheckpoint
     if (offsetManager != null && isStandByTask) {
       checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
     }

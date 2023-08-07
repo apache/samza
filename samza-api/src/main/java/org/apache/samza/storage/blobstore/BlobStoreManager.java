@@ -54,7 +54,7 @@ public interface BlobStoreManager {
    * @throws org.apache.samza.storage.blobstore.exceptions.DeletedException returned future should complete
    *         exceptionally with DeletedException on failure with the blob already deleted error.
    */
-  CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, Boolean getDeletedBlob);
+  CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, boolean getDeletedBlob);
 
   /**
    * Non-blocking call to mark a blob for deletion in the remote blob store

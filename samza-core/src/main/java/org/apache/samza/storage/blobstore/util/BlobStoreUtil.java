@@ -110,13 +110,9 @@ public class BlobStoreUtil {
    * @param checkpoint {@link Checkpoint} instance to get the store state checkpoint markers from. Only
    *                   {@link CheckpointV2} and newer are supported for blob stores.
    * @param storesToBackupOrRestore set of store names to be backed up or restored
+   * @param getDeletedSnapshotIndex tries gets a deleted but not yet compacted SnapshotIndex from the blob store.
    * @return Map of store name to its blob id of snapshot indices and their corresponding snapshot indices for the task.
    */
-  public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
-      String jobName, String jobId, String taskName, Checkpoint checkpoint, Set<String> storesToBackupOrRestore) {
-    return getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToBackupOrRestore, false);
-  }
-
   public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(String jobName, String jobId, String taskName,
       Checkpoint checkpoint, Set<String> storesToBackupOrRestore, Boolean getDeletedSnapshotIndex) {
     //TODO MED shesharma document error handling (checkpoint ver, blob not found, getBlob)
@@ -179,15 +175,6 @@ public class BlobStoreUtil {
    * @param blobId blob ID of the {@link SnapshotIndex} to get
    * @return a Future containing the {@link SnapshotIndex}
    */
-  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata) {
-    return getSnapshotIndex(blobId, metadata, false);
-  }
-
-  /**
-   * GETs the {@link SnapshotIndex} from the blob store.
-   * @param blobId blob ID of the {@link SnapshotIndex} to get
-   * @return a Future containing the {@link SnapshotIndex}
-   */
   public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata, Boolean getDeletedBlob) {
     Preconditions.checkState(StringUtils.isNotBlank(blobId));
     String opName = "getSnapshotIndex: " + blobId;
@@ -217,23 +204,13 @@ public class BlobStoreUtil {
   }
 
   /**
-   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
-   * and finally deletes SnapshotIndex blob itself. This is done by getting the SnapshotIndex first.
-   * @param snapshotIndexBlobId Blob if of SnapshotIndex
+   * Gets SnapshotIndex blob, xleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs
+   * inside the SnapshotIndex and finally deletes SnapshotIndex blob itself.
+   * @param snapshotIndexBlobId Blob id of SnapshotIndex
    * @param requestMetadata Metadata of the request
+   * @param getDeletedBlob Determines whether to try to get deleted SnapshotIndex or not.
    */
-  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata) {
-    return cleanSnapshotIndex(snapshotIndexBlobId, requestMetadata, false);
-  }
-
-  /**
-   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
-   * and finally deletes SnapshotIndex blob itself. This is done by getting the SnapshotIndex first.
-   * @param snapshotIndexBlobId Blob if of SnapshotIndex
-   * @param requestMetadata Metadata of the request
-   * @param getDeletedBlob Gets SnapshotIndex with getDeleted flag set
-   */
-  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata, Boolean getDeletedBlob) {
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata, boolean getDeletedBlob) {
     Metadata getSnapshotRequest = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), requestMetadata.getJobName(),
         requestMetadata.getJobId(), requestMetadata.getTaskName(), requestMetadata.getStoreName());
     SnapshotIndex snapshotIndex = getSnapshotIndex(snapshotIndexBlobId, getSnapshotRequest, getDeletedBlob).join();
@@ -255,12 +232,17 @@ public class BlobStoreUtil {
                 deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
             .thenComposeAsync(v -> deleteSnapshotIndexBlob(snapshotIndexBlobId, requestMetadata), executor) // delete the snapshot index blob
             .exceptionally(ex -> {
-              if (ex instanceof DeletedException) {
-                LOG.warn("DeletedException received on trying to clean up SnapshotIndex {}. Ignoring the error.",
-                    snapshotIndexBlobId);
+              Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class,
+                  FutureUtil.unwrapExceptions(SamzaException.class, ex));
+              // If SnapshotIndex is already deleted, do not fail -> this may happen if after we restore a
+              // deleted checkpoint and then try to clean up old checkpoint.
+              if (unwrappedException instanceof DeletedException) {
+                LOG.warn("Request {} received DeletedException on trying to clean up SnapshotIndex {}. Ignoring the error.",
+                    requestMetadata, snapshotIndexBlobId);
                 return null;
               }
-              String msg = String.format("Error deleting/cleaning up SnapshotIndex: %s", snapshotIndexBlobId);
+              String msg = String.format("Request %s received error deleting/cleaning up SnapshotIndex: %s",
+                  requestMetadata, snapshotIndexBlobId);
               throw new SamzaException(msg, ex);
             });
     return storeDeletionFuture;
@@ -293,10 +275,11 @@ public class BlobStoreUtil {
 
   /**
    * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
-   * with this remote snapshot. getDeletedFiles flag sets whether to attempt a get for deletedFiles or not.
+   * with this remote snapshot.
+   * NOTE: getDeletedFiles flag sets if it reattempts to get a deleted file by setting getDeleted flag in getFiles.
    * @return A future that completes when all the async downloads completes
    */
-  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata, Boolean getDeletedFiles) {
+  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata, boolean getDeletedFiles) {
     LOG.debug("Restoring contents of directory: {} from remote snapshot.", baseDir);
 
     List<CompletableFuture<Void>> downloadFutures = new ArrayList<>();
@@ -466,7 +449,7 @@ public class BlobStoreUtil {
    * @return a future that completes when the file is downloaded and written or if an exception occurs.
    */
   @VisibleForTesting
-  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata, Boolean getDeletedFiles) {
+  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata, boolean getDeletedFiles) {
     FileOutputStream outputStream = null;
     try {
       long restoreFileStartTime = System.nanoTime();
@@ -671,7 +654,7 @@ public class BlobStoreUtil {
 
 
   /**
-   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire.
+   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire, including the new SnapshotIndex
    * @param snapshotIndex {@link SnapshotIndex} of the remote snapshot
    * @param metadata {@link Metadata} related to the request
    * @return A future that completes when all the files and subdirs associated with this remote snapshot are marked to

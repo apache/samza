@@ -91,7 +91,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testExceptionInTaskInitShutsDownTask() {
-    when(this.taskInstance.initTask(any[Checkpoint])).thenThrow(new RuntimeException("Trigger a shutdown, please."))
+    when(this.taskInstance.initTask(any[Option[Checkpoint]])).thenThrow(new RuntimeException("Trigger a shutdown, please."))
 
     this.samzaContainer.run
 
@@ -106,7 +106,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testErrorInTaskInitShutsDownTask(): Unit = {
-    when(this.taskInstance.initTask(any[Checkpoint])).thenThrow(new NoSuchMethodError("Trigger a shutdown, please."))
+    when(this.taskInstance.initTask(any[Option[Checkpoint]])).thenThrow(new NoSuchMethodError("Trigger a shutdown, please."))
 
     this.samzaContainer.run
 

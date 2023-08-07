@@ -175,10 +175,12 @@ public class MyStatefulApplication implements TaskApplication {
     public void init(Context context) {
       storeNames.forEach(storeName -> {
         KeyValueStore<String, String> store = (KeyValueStore<String, String>) context.getTaskContext().getStore(storeName);
+        LOG.debug("For storename:{} received: {}", storeName, store);
         stores.add(store); // any input messages will be written to all 'stores'
         KeyValueIterator<String, String> storeEntries = store.all();
         List<String> storeInitialContents = new ArrayList<>();
         while (storeEntries.hasNext()) {
+          LOG.debug("INIT {} Store content. StoreInitialContent: {}", storeName, storeInitialContents);
           storeInitialContents.add(storeEntries.next().getValue());
         }
         initialStoreContents.put(storeName, storeInitialContents);
@@ -188,11 +190,14 @@ public class MyStatefulApplication implements TaskApplication {
       inMemoryStoreNames.forEach(storeName -> {
         KeyValueStore<String, String> store =
             (KeyValueStore<String, String>) context.getTaskContext().getStore(storeName);
+        LOG.debug("For storename:{} received: {}", storeName, store);
         stores.add(store); // any input messages will be written to all 'stores'.
         KeyValueIterator<String, String> storeEntries = store.all();
         List<String> storeInitialContents = new ArrayList<>();
+        LOG.debug("INIT InMemory Store content:{} ", storeName);
         while (storeEntries.hasNext()) {
           storeInitialContents.add(storeEntries.next().getValue());
+          LOG.debug("INIT InMemory Store content. StoreInitialContent: {}", storeInitialContents);
         }
         initialInMemoryStoreContents.put(storeName, storeInitialContents);
         storeEntries.close();
@@ -201,6 +206,7 @@ public class MyStatefulApplication implements TaskApplication {
       if (sideInputStoreName.isPresent()) {
         KeyValueStore<String, String> sideInputStore =
             (KeyValueStore<String, String>) context.getTaskContext().getStore(sideInputStoreName.get());
+        LOG.debug("For storename:{} received: {}", sideInputStoreName, sideInputStore);
         KeyValueIterator<String, String> sideInputStoreEntries = sideInputStore.all();
         List<String> sideInputStoreInitialContents = new ArrayList<>();
         while (sideInputStoreEntries.hasNext()) {
@@ -219,25 +225,38 @@ public class MyStatefulApplication implements TaskApplication {
 
       if (key.endsWith("crash_once")) {  // endsWith allows :crash_once and crash_once
         if (!crashedOnce) {
+          LOG.debug("Process in my task: CrashOnce received.");
           crashedOnce = true;
           coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
         } else {
           return;
         }
       } else if (key.endsWith("shutdown")) {
+        LOG.debug("Process in my task: Shutdown received.");
         coordinator.shutdown(TaskCoordinator.RequestScope.CURRENT_TASK);
       } else if (key.startsWith("-")) {
-        stores.forEach(store -> store.delete(key.substring(1)));
+        stores.forEach(store -> {
+          LOG.debug("Process in my task: - received. Deleting: {} from {}", key, store);
+          store.delete(key.substring(1));
+        });
       } else if (key.startsWith(":")) {
         // write the message and flush, but don't invoke commit later
         String msg = key.substring(1);
-        stores.forEach(store -> store.put(msg, msg));
+        stores.forEach(store -> {
+          LOG.debug("Process in my task: ':' received. Put {} in {}", msg, store);
+          store.put(msg, msg);
+        });
       } else {
-        stores.forEach(store -> store.put(key, key));
+        stores.forEach(store -> {
+          LOG.debug("Process in my task: Adding key to store. Put {} in {}", key, store);
+          store.put(key, key);
+        });
       }
+      LOG.debug("Process in my task: Flush received.");
       stores.forEach(KeyValueStore::flush);
 
       if (!key.startsWith(":")) {
+        LOG.debug("Process in my task: ':' not received. Calling commit: {}", TaskCoordinator.RequestScope.CURRENT_TASK);
         coordinator.commit(TaskCoordinator.RequestScope.CURRENT_TASK);
       }
     }

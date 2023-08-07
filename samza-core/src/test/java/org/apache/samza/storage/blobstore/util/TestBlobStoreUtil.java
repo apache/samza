@@ -800,7 +800,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", null, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            null, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -810,7 +811,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> prevSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertEquals(prevSnapshotIndexes.size(), 0);
   }
 
@@ -824,7 +826,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -838,7 +841,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -851,10 +855,9 @@ public class TestBlobStoreUtil {
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
     when(mockBlobStoreUtil.getSnapshotIndex(anyString(), any(Metadata.class), anyBoolean())).thenThrow(new RuntimeException());
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-    when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
         any(Checkpoint.class), anySetOf(String.class), any(Boolean.class))).thenCallRealMethod();
-    mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+    mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+        checkpoint, storesToBackupOrRestore, false);
   }
 
   @Test
@@ -869,8 +872,6 @@ public class TestBlobStoreUtil {
     SnapshotIndex store1SnapshotIndex = mock(SnapshotIndex.class);
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-    when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
         any(Checkpoint.class), anySetOf(String.class), anyBoolean())).thenCallRealMethod();
     RuntimeException nonIgnoredException = new RuntimeException();
     CompletableFuture<SnapshotIndex> failedFuture = FutureUtil.failedFuture(nonIgnoredException);
@@ -879,7 +880,8 @@ public class TestBlobStoreUtil {
     when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId2"), any(Metadata.class), anyBoolean())).thenReturn(failedFuture);
 
     try {
-      mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+      mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+          checkpoint, storesToBackupOrRestore, false);
       fail("Should have thrown an exception");
     } catch (Exception e) {
       Throwable cause =
@@ -908,12 +910,11 @@ public class TestBlobStoreUtil {
     when(mockBlobStoreUtil.getSnapshotIndex(eq(otherStoreSnapshotIndexBlobId), any(Metadata.class), any(Boolean.class))).thenReturn(
         CompletableFuture.completedFuture(mockOtherStooreSnapshotIndex));
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-    when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
         any(Checkpoint.class), anySetOf(String.class), any(Boolean.class))).thenCallRealMethod();
 
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            checkpoint, storesToBackupOrRestore, false);
 
     assertEquals(storeSnapshotIndexBlobId, snapshotIndexes.get(storeName).getKey());
     assertEquals(mockStoreSnapshotIndex, snapshotIndexes.get(storeName).getValue());
@@ -935,12 +936,11 @@ public class TestBlobStoreUtil {
     when(mockBlobStoreUtil.getSnapshotIndex(any(String.class), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(mockStoreSnapshotIndex));
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-    when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
         any(Checkpoint.class), anySetOf(String.class), anyBoolean())).thenCallRealMethod();
 
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            checkpoint, storesToBackupOrRestore, false);
 
     verify(mockBlobStoreUtil, times(storesToBackupOrRestore.size()))
         .getSnapshotIndex(anyString(), any(Metadata.class), anyBoolean());
