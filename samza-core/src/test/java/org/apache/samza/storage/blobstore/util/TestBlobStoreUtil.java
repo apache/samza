@@ -623,7 +623,7 @@ public class TestBlobStoreUtil {
       });
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
         new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
@@ -681,7 +681,7 @@ public class TestBlobStoreUtil {
       });
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
         new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
@@ -735,7 +735,7 @@ public class TestBlobStoreUtil {
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     try {
-      blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+      blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
       fail("Should have failed on non-retriable errors during file restore");
     } catch (CompletionException e) {
       assertTrue(e.getCause() instanceof IllegalArgumentException);
@@ -786,7 +786,7 @@ public class TestBlobStoreUtil {
 
     Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata, false).join();
 
     assertTrue(new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), dirIndex));
   }

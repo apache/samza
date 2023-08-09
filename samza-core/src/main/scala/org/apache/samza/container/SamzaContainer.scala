@@ -983,7 +983,8 @@ class SamzaContainer(
 
   /**
    * Starts all the stores by restoring and recreating the stores, if necessary
-   * @return Returns the latest checkpoint associated with each task.
+   * @return Returns the latest checkpoint associated with each task. This checkpoint does not have Startpoint applied
+   *         over it.
    *         Note: In case of blob store manager, returned checkpoints for a task may contain a checkpoint recreated on
    *         blob store, in case the previous one was recently deleted. More details in SAMZA-2787
    */

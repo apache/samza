@@ -267,15 +267,6 @@ public class BlobStoreUtil {
   /**
    * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
    * with this remote snapshot.
-   * @return A future that completes when all the async downloads completes
-   */
-  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata) {
-    return restoreDir(baseDir, dirIndex, metadata, false);
-  }
-
-  /**
-   * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
-   * with this remote snapshot.
    * NOTE: getDeletedFiles flag sets if it reattempts to get a deleted file by setting getDeleted flag in getFiles.
    * @return A future that completes when all the async downloads completes
    */
@@ -312,7 +303,7 @@ public class BlobStoreUtil {
     List<DirIndex> subDirs = dirIndex.getSubDirsPresent();
     for (DirIndex subDir : subDirs) {
       File subDirFile = Paths.get(baseDir.getAbsolutePath(), subDir.getDirName()).toFile();
-      downloadFutures.add(restoreDir(subDirFile, subDir, metadata));
+      downloadFutures.add(restoreDir(subDirFile, subDir, metadata, false));
     }
 
     return FutureUtil.allOf(downloadFutures);

@@ -270,7 +270,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       }
 
       // If getDeletedBlobs is enabled - always restore so that we get all the blobs, including the deleted blobs,
-      // and immediately restore it locally, which is to be backed up later to create a new snapshot.
+      // and immediately restore it locally, which is to be backed up later in ContainerStorageManager recovery path
+      // to create a new snapshot.
       boolean shouldRestore = getDeletedBlobs || shouldRestore(taskName.getTaskName(), storeName, dirIndex,
           storeCheckpointDir, storageConfig, dirDiffUtil);
 
