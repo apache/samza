@@ -79,6 +79,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
@@ -272,6 +273,9 @@ public class TestContainerStorageManager {
       return CompletableFuture.completedFuture(null);
     }).when(restoreManager).restore();
 
+    Map<TaskName, TaskInstanceCollector> taskInstanceCollectors = new HashMap<>();
+    tasks.keySet().forEach(taskName -> taskInstanceCollectors.put(taskName, mock(TaskInstanceCollector.class)));
+
     // Create the container storage manager
     this.containerStorageManager = new ContainerStorageManager(
         checkpointManager,
@@ -289,7 +293,7 @@ public class TestContainerStorageManager {
         mock(JobContext.class),
         mockContainerContext,
         ImmutableMap.of(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, backendFactory),
-        mock(Map.class),
+        taskInstanceCollectors,
         DEFAULT_LOGGED_STORE_BASE_DIR,
         DEFAULT_STORE_BASE_DIR,
         null,
