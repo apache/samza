@@ -1003,12 +1003,12 @@ class SamzaContainer(
   /**
    * Init all task instances
    * @param taskCheckpoints last checkpoint for a TaskName. This last checkpoint could be different from the one returned
-   *                        from CommitManager#getLastCheckpoint. The new checkpoint could be created in case the last
+   *                        from CheckpointManager#getLastCheckpoint. The new checkpoint could be created in case the last
    *                        checkpoint was recently deleted and BlobStoreManager could recover it. More details in
    *                        SAMZA-2787
    */
   def startTask(taskCheckpoints: util.Map[TaskName, Checkpoint]) {
-    info("Initializing stream tasks.")
+    info("Initializing stream tasks with taskCheckpoints %s." format(taskCheckpoints) )
 
     taskInstances.keys.foreach { taskName =>
       val taskInstance = taskInstances(taskName)

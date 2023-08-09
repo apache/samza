@@ -154,11 +154,12 @@ class TaskInstance(
 
     val isStandByTask = taskModel.getTaskMode == TaskMode.Standby
     var checkpoint: Checkpoint = lastTaskCheckpoint.orNull
+    debug("initTask with optional checkpoint %s" format(checkpoint))
 
     if (commitManager != null) {
-      debug("Starting commit manager for taskName: %s" format taskName)
+      debug("Starting commit manager for taskName %s" format taskName)
       if (isStandByTask) {
-        debug("Standby task: %s Passing null to init for taskName %s:" format (isStandByTask, taskName))
+        debug("Passing null to init for standby taskName %s" format taskName)
         // pass null in case of standby task. This is to ensure, checkpoint is always read from checkpoint topic
         commitManager.init(null)
       } else {

@@ -98,7 +98,7 @@ import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({ReflectionUtil.class, ContainerStorageManagerUtil.class})
+@PrepareForTest({ReflectionUtil.class, ContainerStorageManagerRestoreUtil.class})
 public class TestContainerStorageManager {
 
   private static final String STORE_NAME = "store";
@@ -567,7 +567,7 @@ public class TestContainerStorageManager {
     ExecutorService executor = Executors.newSingleThreadExecutor();
     SystemConsumer systemConsumer = mock(SystemConsumer.class);
 
-    ContainerStorageManagerUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, storeTaskRestoreManager),
+    ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, storeTaskRestoreManager),
         samzaContainerMetrics, checkpointManager, jobContext, containerModel, taskCheckpoints,
         taskBackendFactoryToStoreNames, config, executor, new HashMap<>(), null,
         ImmutableMap.of("store", systemConsumer));
@@ -640,11 +640,11 @@ public class TestContainerStorageManager {
     when(blobStoreManagerFactory.getRestoreBlobStoreManager(any(Config.class), any(ExecutorService.class)))
         .thenReturn(blobStoreManager);
 
-    // mock ContainerStorageManagerUtil.backupRecoveredStore
+    // mock ContainerStorageManagerRestoreUtil.backupRecoveredStore
     String expectedBlobId = "blobId";
-    PowerMockito.spy(ContainerStorageManagerUtil.class);
+    PowerMockito.spy(ContainerStorageManagerRestoreUtil.class);
     PowerMockito.doReturn(CompletableFuture.completedFuture(ImmutableMap.of("store", expectedBlobId)))
-        .when(ContainerStorageManagerUtil.class, "backupRecoveredStore",
+        .when(ContainerStorageManagerRestoreUtil.class, "backupRecoveredStore",
             any(JobContext.class), any(ContainerModel.class), any(Config.class),
             any(TaskName.class), any(Set.class), any(Checkpoint.class), any(File.class),
             any(BlobStoreManager.class), any(MetricsRegistry.class), any(ExecutorService.class));
@@ -673,7 +673,7 @@ public class TestContainerStorageManager {
         .thenAnswer(invocation -> CompletableFuture.completedFuture(null));
 
     Map<TaskName, Checkpoint> updatedTaskCheckpoints =
-        ContainerStorageManagerUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, factoryToTaskRestoreManager),
+        ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, factoryToTaskRestoreManager),
             samzaContainerMetrics, checkpointManager, jobContext, containerModel, taskCheckpoints,
             taskBackendFactoryToStoreNames, config, executor, new HashMap<>(), null,
             ImmutableMap.of("store", systemConsumer)).get();

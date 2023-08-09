@@ -64,6 +64,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -128,6 +130,8 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
 
   private final boolean hostAffinity;
 
+  private final Logger LOG = LoggerFactory.getLogger(BlobStoreStateBackendIntegrationTest.class);
+
   public BlobStoreStateBackendIntegrationTest(boolean hostAffinity) {
     this.hostAffinity = hostAffinity;
   }
@@ -135,6 +139,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
   @Before
   @Override
   public void setUp() {
+    LOG.debug("Starting setup");
     super.setUp();
     // reset static state shared with task between each parameterized iteration
     MyStatefulApplication.resetTestState();
@@ -150,6 +155,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     FileUtil fileUtil = new FileUtil();
     fileUtil.rm(new File(LOGGED_STORE_BASE_DIR));
     fileUtil.rm(new File(BLOB_STORE_BASE_DIR));
+    LOG.debug("Tear down complete");
   }
 
   @Test
@@ -390,16 +396,18 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     }
   }
 
-  private void deleteLastSnapshotIndex(Pair<String, SnapshotIndex> pathSnapshotIndexpair) {
-    deleteCheckpointFromBlobStore(pathSnapshotIndexpair.getRight().getDirIndex());
+  private void deleteLastSnapshotIndex(Pair<String, SnapshotIndex> pathSnapshotIndexPair) {
+    deleteCheckpointFromBlobStore(pathSnapshotIndexPair.getRight().getDirIndex());
     try {
-      Files.move(Paths.get(pathSnapshotIndexpair.getLeft()), Paths.get(pathSnapshotIndexpair.getLeft() + "-DELETED")); // Delete the file
+      LOG.debug("Deleted last SnapshotIndex: {}", pathSnapshotIndexPair.getLeft());
+      Files.move(Paths.get(pathSnapshotIndexPair.getLeft()), Paths.get(pathSnapshotIndexPair.getLeft() + "-DELETED")); // Delete the file
     } catch (IOException e) {
-      throw new RuntimeException("Failed to delete file: " + pathSnapshotIndexpair.getLeft(), e);
+      throw new RuntimeException("Failed to delete file: " + pathSnapshotIndexPair.getLeft(), e);
     }
   }
 
   private void deleteBlobFromLastCheckpoint(SnapshotIndex snapshotIndex) {
+    LOG.debug("Deleting SnapshotIndex {} and all associated blobs", snapshotIndex);
     DirIndex dirIndex = snapshotIndex.getDirIndex();
     // deleted any blob - deleting first blob in the snapshot
     List<FileIndex> files = dirIndex.getFilesPresent();
@@ -423,6 +431,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
       for (FileBlob blob: blobs) {
         String blobPath = blob.getBlobId();
         try {
+          LOG.debug("Deleting blob: {}", blobPath);
           Files.move(Paths.get(blobPath), Paths.get(blobPath + "-DELETED")); // Delete the file
         } catch (IOException e) {
           throw new RuntimeException("Failed to delete file: " + blobPath, e);

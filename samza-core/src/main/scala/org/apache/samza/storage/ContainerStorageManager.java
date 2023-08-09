@@ -307,8 +307,9 @@ public class ContainerStorageManager {
     });
 
     // Init all taskRestores and if successful, restores all the task stores concurrently
+    LOG.debug("Pre init and restore checkpoints is: {}", taskCheckpoints);
     CompletableFuture<Map<TaskName, Checkpoint>> initRestoreAndNewCheckpointFuture =
-        ContainerStorageManagerUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
+        ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(taskRestoreManagers, samzaContainerMetrics,
             checkpointManager, jobContext, containerModel, taskCheckpoints, taskBackendFactoryToStoreNames, config,
             restoreExecutor, taskInstanceMetrics, loggedStoreBaseDirectory, storeConsumers);
 
@@ -317,6 +318,7 @@ public class ContainerStorageManager {
     try {
       Map<TaskName, Checkpoint> newTaskCheckpoints = initRestoreAndNewCheckpointFuture.get();
       taskCheckpoints.putAll(newTaskCheckpoints);
+      LOG.debug("Post init and restore checkpoints is: {}. NewTaskCheckpoints are: {}", taskCheckpoints, newTaskCheckpoints);
     } catch (InterruptedException e) {
       LOG.warn("Received an interrupt during store restoration. Interrupting the restore executor to exit "
           + "prematurely without restoring full state.");

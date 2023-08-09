@@ -133,7 +133,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
   @Override
   public void init(Checkpoint checkpoint) {
     long startTime = System.nanoTime();
-    LOG.debug("Initializing blob store backup manager for task: {}", taskName);
+    LOG.debug("Initializing blob store backup manager for task: {} with checkpoint {}", taskName, checkpoint);
 
     blobStoreManager.init();
 
@@ -141,6 +141,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     // TODO LOW shesharma exclude stores that are no longer configured during init
     // NOTE: Get SnapshotIndex with getDeleted set to false. A failure to get a blob from SnapshotIndex would restart
     // the container and the init()/restore() should be able to create a new Snapshot in the blob store and recover.
+    // This helps with the rare race condition where SnapshotIndex was deleted after the restore completed successfully.
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
         blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, new HashSet<>(storesToBackup), false);
     this.prevStoreSnapshotIndexesFuture =
@@ -331,7 +332,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
     return FutureUtil.allOf(removeTTLFutures, cleanupRemoteSnapshotFutures, removePrevRemoteSnapshotFutures)
         .whenComplete((res, ex) -> {
           if (ex != null) {
-            LOG.error("Could not finish cleanup. Checkpoint id: {}, store SCMs: {}", checkpointId, storeSCMs, ex);
+            LOG.error("Could not finish cleanup. checkpointid: {}, store SCMs: {}", checkpointId, storeSCMs, ex);
           }
           metrics.cleanupNs.update(System.nanoTime() - startTime);
         });

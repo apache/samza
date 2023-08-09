@@ -127,22 +127,22 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   /**
    * Initialize state resources such as store directories.
    * NOTE: init can be called twice. In case init fails with DeletedException for the first time, it will be retried with
-   *       getDeletedBlob set to true.
+   *       getDeleted set to true.
    * @param checkpoint Current task checkpoint
-   * @param getDeletedBlob Flag to get deleted SnapshotIndex blob
+   * @param getDeleted Flag to get deleted SnapshotIndex blob
    */
-  public void init(Checkpoint checkpoint, boolean getDeletedBlob) {
+  public void init(Checkpoint checkpoint, boolean getDeleted) {
     long startTime = System.nanoTime();
-    LOG.debug("Initializing blob store restore manager for task: {}", taskName);
+    LOG.debug("Initializing blob store restore manager for task {} with getDeleted {}", taskName, getDeleted);
 
     blobStoreManager.init();
 
     // get previous SCMs from checkpoint
     prevStoreSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore, getDeletedBlob);
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore, getDeleted);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
-    LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {}",
-        taskName, prevStoreSnapshotIndexes);
+    LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {} with getDeleted set to {}",
+        taskName, prevStoreSnapshotIndexes, getDeleted);
 
     metrics.initStoreMetrics(storesToRestore);
 
@@ -227,7 +227,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
-      ExecutorService executor, boolean getDeletedBlobs) {
+      ExecutorService executor, boolean getDeleted) {
     long restoreStartTime = System.nanoTime();
     List<CompletionStage<Void>> restoreFutures = new ArrayList<>();
     LOG.debug("Starting restore for task: {} stores: {}", taskName, storesToRestore);
@@ -269,10 +269,12 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         throw new SamzaException(String.format("Error deleting store directory: %s", storeDir), e);
       }
 
-      // If getDeletedBlobs is enabled - always restore so that we get all the blobs, including the deleted blobs,
-      // and immediately restore it locally, which is to be backed up later in ContainerStorageManager recovery path
-      // to create a new snapshot.
-      boolean shouldRestore = getDeletedBlobs || shouldRestore(taskName.getTaskName(), storeName, dirIndex,
+      // Restore from blob store if:
+      // 1. shouldRestore() returns true - there is a diff between local and remote snapshot.
+      // 2. getDeleted is set - Some blobs in the blob store were deleted incorrectly (SAMZA-2787). Download/restore
+      //                             everything locally ignoring the diff. This will be backed up afresh by
+      //                             ContainerStorageManager recovery path.
+      boolean shouldRestore = getDeleted || shouldRestore(taskName.getTaskName(), storeName, dirIndex,
           storeCheckpointDir, storageConfig, dirDiffUtil);
 
       if (shouldRestore) { // restore the store from the remote blob store
@@ -286,7 +288,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
         metrics.storePreRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
         enqueueRestore(jobName, jobId, taskName.toString(), storeName, storeDir, dirIndex, storeRestoreStartTime,
-            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor, getDeletedBlobs);
+            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor, getDeleted);
       } else {
         LOG.debug("Renaming store checkpoint directory: {} to store directory: {} since its contents are identical " +
             "to the remote snapshot.", storeCheckpointDir, storeDir);
@@ -363,7 +365,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
                     storeDir.getAbsolutePath()));
           } else {
             metrics.storePostRestoreNs.get(storeName).set(System.nanoTime() - postRestoreStartTime);
-            LOG.info("Restore from remote snapshot completed for store: {}", storeDir);
+            LOG.info("Restore from remote snapshot completed for store: {} with getDeleted set to {}", storeDir, getDeleted);
           }
         }, executor);
 
