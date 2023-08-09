@@ -64,8 +64,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -75,7 +73,7 @@ import static org.junit.Assert.assertTrue;
 public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegrationTest {
   @Parameterized.Parameters(name = "hostAffinity={0}")
   public static Collection<Boolean> data() {
-    return Arrays.asList(false, true, false, true, false, true, true, false, false);
+    return Arrays.asList(true, false);
   }
 
   private static final String INPUT_SYSTEM = "kafka";
@@ -99,8 +97,6 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     }
   }
   private static final String BLOB_STORE_LEDGER_DIR = new File(BLOB_STORE_BASE_DIR, "ledger").getAbsolutePath();
-
-  private static final Logger LOG = LoggerFactory.getLogger(BlobStoreStateBackendIntegrationTest.class);
 
   private static final Map<String, String> CONFIGS = new HashMap<String, String>() { {
       put(JobCoordinatorConfig.JOB_COORDINATOR_FACTORY, "org.apache.samza.standalone.PassthroughJobCoordinatorFactory");
@@ -139,7 +135,6 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
   @Before
   @Override
   public void setUp() {
-    LOG.info("Starting tests");
     super.setUp();
     // reset static state shared with task between each parameterized iteration
     MyStatefulApplication.resetTestState();
@@ -155,7 +150,6 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
     FileUtil fileUtil = new FileUtil();
     fileUtil.rm(new File(LOGGED_STORE_BASE_DIR));
     fileUtil.rm(new File(BLOB_STORE_BASE_DIR));
-    LOG.info("Tests ended");
   }
 
   @Test

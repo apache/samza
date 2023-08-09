@@ -486,18 +486,18 @@ public class ContainerStorageManagerUtil {
   }
 
   /**
-   * Restores all TaskInstances and returns a future for each TaskInstance restore.
-   * Note: In case of {@link BlobStoreRestoreManager}, this method restore with getDeleted flag if it
-   *       receives a {@link DeletedException}. This will create a new Checkpoint.
+   * Restores all TaskInstances and returns a future for each TaskInstance restore. Note: In case of
+   * {@link BlobStoreRestoreManager}, this method restore with getDeleted flag if it receives a
+   * {@link DeletedException}. This will create a new Checkpoint.
    */
-  public static CompletableFuture<Map<TaskName, Checkpoint>> restoreAllTaskInstances(
+  private static CompletableFuture<Map<TaskName, Checkpoint>> restoreAllTaskInstances(
       Map<TaskName, Map<String, TaskRestoreManager>> taskRestoreManagers, Map<TaskName, Checkpoint> taskCheckpoints,
       Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames, JobContext jobContext,
       ContainerModel containerModel, SamzaContainerMetrics samzaContainerMetrics, CheckpointManager checkpointManager,
       Config config, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ExecutorService executor,
       File loggedStoreDir, Set<String> forceRestoreTask) {
 
-    Map<TaskName, Checkpoint> newTaskCheckpoints = new ConcurrentHashMap<>();
+    Map<TaskName, CompletableFuture<Checkpoint>> newTaskCheckpoints = new ConcurrentHashMap<>();
     List<Future<Void>> taskRestoreFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
@@ -537,7 +537,7 @@ public class ContainerStorageManagerUtil {
                       jobContext, containerModel);
               try {
                 if (future != null) {
-                  newTaskCheckpoints.put(taskInstanceName, future.join());
+                  newTaskCheckpoints.put(taskInstanceName, future);
                 }
               } catch (Exception e) {
                 String msg =
@@ -569,8 +569,8 @@ public class ContainerStorageManagerUtil {
         taskRestoreFutures.add(taskRestoreFuture);
       });
     });
-    CompletableFuture<Void> allFutures = CompletableFuture.allOf(taskRestoreFutures.toArray(new CompletableFuture[0]));
-    return allFutures.thenApply(ignoredVoid -> newTaskCheckpoints);
+    CompletableFuture<Void> restoreFutures = CompletableFuture.allOf(taskRestoreFutures.toArray(new CompletableFuture[0]));
+    return restoreFutures.thenCompose(ignoredVoid -> FutureUtil.toFutureOfMap(newTaskCheckpoints));
   }
 
   /**
@@ -614,7 +614,6 @@ public class ContainerStorageManagerUtil {
           loggedStoreBaseDirectory, blobStoreManager, metricsRegistry, executor));
 
     // 3. Mark new Snapshots to never expire
-    // Note: pass future uploadSCMs from backup as return because removeTTLNewSnapshots needs it.
     CompletableFuture<Void> removeNewSnapshotsTTLFuture = backupStoresFuture.thenCompose(
       storeSCMs -> {
         List<CompletableFuture<Void>> removeSnapshotTTLFutures = new ArrayList<>();
@@ -627,7 +626,6 @@ public class ContainerStorageManagerUtil {
       });
 
     // 4. Delete prev SnapshotIndex including files/subdirs
-    // Note: pass uploadSCMs future from upload as return because writeNewCheckpoint needs it.
     CompletableFuture<Void> deleteOldSnapshotsFuture = removeNewSnapshotsTTLFuture.thenCompose(
       ignore -> {
         List<CompletableFuture<Void>> deletePrevSnapshotFutures = new ArrayList<>();
@@ -641,8 +639,8 @@ public class ContainerStorageManagerUtil {
 
     // 5. create new checkpoint
     CompletableFuture<Checkpoint> newTaskCheckpointsFuture =
-      deleteOldSnapshotsFuture.thenApply(scms ->
-          writeNewCheckpoint(taskName, checkpointId, backupStoresFuture.join(), checkpointManager));
+        deleteOldSnapshotsFuture.thenCombine(backupStoresFuture, (aVoid, scms) ->
+            writeNewCheckpoint(taskName, checkpointId, scms, checkpointManager));
 
     return newTaskCheckpointsFuture.exceptionally(ex -> {
       String msg = String.format("Could not restore task: %s after attempting to restore deleted blobs.", taskName);

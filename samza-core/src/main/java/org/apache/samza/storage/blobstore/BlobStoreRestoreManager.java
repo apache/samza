@@ -119,7 +119,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void init(Checkpoint checkpoint) {
-    // By default, init without retrying deleted SnapshotIndex blob
+    // By default, init without retrying deleted SnapshotIndex blob. We want the init to fail if the SnapshotIndex blob
+    // was deleted. This allows us to mark the task for a full restore in restore().
     init(checkpoint, false);
   }
 
@@ -130,7 +131,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    * @param checkpoint Current task checkpoint
    * @param getDeletedBlob Flag to get deleted SnapshotIndex blob
    */
-  public void init(Checkpoint checkpoint, Boolean getDeletedBlob) {
+  public void init(Checkpoint checkpoint, boolean getDeletedBlob) {
     long startTime = System.nanoTime();
     LOG.debug("Initializing blob store restore manager for task: {}", taskName);
 

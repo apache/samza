@@ -139,17 +139,6 @@ public class FutureUtil {
     });
   }
 
-  /**
-   * Helper method to convert: {@code Map<K, CompletionStage<Void>>}
-   * to:                       {@code CompletableFuture<Void>}
-   *
-   * Returns a future that completes when all value futures complete.
-   * Returned future completes exceptionally if any of the value futures complete exceptionally.
-   */
-  public static CompletableFuture<Void> mapToFuture(Map<String, CompletionStage<Void>> map) {
-    return CompletableFuture.allOf(map.values().toArray(new CompletableFuture[0]));
-  }
-
   public static <T> CompletableFuture<T> executeAsyncWithRetries(String opName,
       Supplier<? extends CompletionStage<T>> action, Predicate<? extends Throwable> abortRetries,
       ExecutorService executor, RetryPolicyConfig retryPolicyConfig) {

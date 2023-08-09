@@ -99,7 +99,7 @@ public class TaskStorageCommitManager {
     final Checkpoint[] finalCheckpoint = new Checkpoint[]{checkpoint};
     if (checkpoint == null && checkpointManager != null) {
       finalCheckpoint[0] = checkpointManager.readLastCheckpoint(taskName);
-      LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, checkpoint);
+      LOG.debug("Last checkpoint on start for task: {} is: {}", taskName, finalCheckpoint[0]);
     }
     stateBackendToBackupManager.values()
         .forEach(storageBackupManager -> storageBackupManager.init(finalCheckpoint[0]));

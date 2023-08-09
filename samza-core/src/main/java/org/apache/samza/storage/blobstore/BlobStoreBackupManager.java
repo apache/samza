@@ -139,10 +139,10 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
     // Note: blocks the caller thread.
     // TODO LOW shesharma exclude stores that are no longer configured during init
-    // NOTE: Always get SnapshotIndex with getDeleted enabled. A failure to get a blob from SnapshotIndex would restart
-    // the container and the init()/restore() should be able to create a new Snapshot in the blob store and recover
+    // NOTE: Get SnapshotIndex with getDeleted set to false. A failure to get a blob from SnapshotIndex would restart
+    // the container and the init()/restore() should be able to create a new Snapshot in the blob store and recover.
     Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, new HashSet<>(storesToBackup), true);
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, new HashSet<>(storesToBackup), false);
     this.prevStoreSnapshotIndexesFuture =
         CompletableFuture.completedFuture(ImmutableMap.copyOf(prevStoreSnapshotIndexes));
     metrics.initNs.set(System.nanoTime() - startTime);

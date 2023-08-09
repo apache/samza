@@ -175,7 +175,7 @@ public class BlobStoreUtil {
    * @param blobId blob ID of the {@link SnapshotIndex} to get
    * @return a Future containing the {@link SnapshotIndex}
    */
-  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata, Boolean getDeletedBlob) {
+  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata, boolean getDeletedBlob) {
     Preconditions.checkState(StringUtils.isNotBlank(blobId));
     String opName = "getSnapshotIndex: " + blobId;
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
@@ -204,7 +204,7 @@ public class BlobStoreUtil {
   }
 
   /**
-   * Gets SnapshotIndex blob, xleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs
+   * Gets SnapshotIndex blob, cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs
    * inside the SnapshotIndex and finally deletes SnapshotIndex blob itself.
    * @param snapshotIndexBlobId Blob id of SnapshotIndex
    * @param requestMetadata Metadata of the request
@@ -213,8 +213,8 @@ public class BlobStoreUtil {
   public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata, boolean getDeletedBlob) {
     Metadata getSnapshotRequest = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), requestMetadata.getJobName(),
         requestMetadata.getJobId(), requestMetadata.getTaskName(), requestMetadata.getStoreName());
-    SnapshotIndex snapshotIndex = getSnapshotIndex(snapshotIndexBlobId, getSnapshotRequest, getDeletedBlob).join();
-    return cleanSnapshotIndex(snapshotIndexBlobId, snapshotIndex, requestMetadata);
+    return getSnapshotIndex(snapshotIndexBlobId, getSnapshotRequest, getDeletedBlob)
+        .thenCompose(snapshotIndex -> cleanSnapshotIndex(snapshotIndexBlobId, snapshotIndex, requestMetadata));
   }
 
   /**
