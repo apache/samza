@@ -25,6 +25,7 @@ import java.util
 import java.util.concurrent.atomic.AtomicReference
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 import org.apache.samza.Partition
+import org.apache.samza.checkpoint.Checkpoint
 import org.apache.samza.config.{ClusterManagerConfig, Config, MapConfig}
 import org.apache.samza.context.{ApplicationContainerContext, ContainerContext}
 import org.apache.samza.coordinator.JobModelManager
@@ -90,7 +91,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testExceptionInTaskInitShutsDownTask() {
-    when(this.taskInstance.initTask).thenThrow(new RuntimeException("Trigger a shutdown, please."))
+    when(this.taskInstance.initTask(any[Option[Checkpoint]])).thenThrow(new RuntimeException("Trigger a shutdown, please."))
 
     this.samzaContainer.run
 
@@ -105,7 +106,7 @@ class TestSamzaContainer extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testErrorInTaskInitShutsDownTask(): Unit = {
-    when(this.taskInstance.initTask).thenThrow(new NoSuchMethodError("Trigger a shutdown, please."))
+    when(this.taskInstance.initTask(any[Option[Checkpoint]])).thenThrow(new NoSuchMethodError("Trigger a shutdown, please."))
 
     this.samzaContainer.run
 

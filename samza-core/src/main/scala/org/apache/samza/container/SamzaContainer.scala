@@ -30,7 +30,7 @@ import java.util.{Base64, Optional}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.samza.SamzaException
 import org.apache.samza.application.ApplicationUtil
-import org.apache.samza.checkpoint.{CheckpointListener, OffsetManager, OffsetManagerMetrics}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointListener, OffsetManager, OffsetManagerMetrics}
 import org.apache.samza.clustermanager.StandbyTaskUtil
 import org.apache.samza.config.{StreamConfig, _}
 import org.apache.samza.container.disk.DiskSpaceMonitor.Listener
@@ -780,11 +780,11 @@ class SamzaContainer(
       // TODO HIGH pmaheshw SAMZA-2338: since store restore needs to trim changelog messages,
       // need to start changelog producers before the stores, but stop them after stores.
       startProducers
-      startStores
+      val taskCheckpoints = startStores
       startTableManager
       startDiskSpaceMonitor
       startHostStatisticsMonitor
-      startTask
+      startTask(taskCheckpoints)
       startConsumers
       startSecurityManger
 
@@ -981,7 +981,14 @@ class SamzaContainer(
     }
   }
 
-  def startStores {
+  /**
+   * Starts all the stores by restoring and recreating the stores, if necessary
+   * @return Returns the latest checkpoint associated with each task. This checkpoint does not have Startpoint applied
+   *         over it.
+   *         Note: In case of blob store manager, returned checkpoints for a task may contain a checkpoint recreated on
+   *         blob store, in case the previous one was recently deleted. More details in SAMZA-2787
+   */
+  def startStores: util.Map[TaskName, Checkpoint] = {
     info("Starting container storage manager.")
     containerStorageManager.start()
   }
@@ -993,10 +1000,21 @@ class SamzaContainer(
     })
   }
 
-  def startTask {
-    info("Initializing stream tasks.")
+  /**
+   * Init all task instances
+   * @param taskCheckpoints last checkpoint for a TaskName. This last checkpoint could be different from the one returned
+   *                        from CheckpointManager#getLastCheckpoint. The new checkpoint could be created in case the last
+   *                        checkpoint was recently deleted and BlobStoreManager could recover it. More details in
+   *                        SAMZA-2787
+   */
+  def startTask(taskCheckpoints: util.Map[TaskName, Checkpoint]) {
+    info("Initializing stream tasks with taskCheckpoints %s." format(taskCheckpoints) )
 
-    taskInstances.values.foreach(_.initTask)
+    taskInstances.keys.foreach { taskName =>
+      val taskInstance = taskInstances(taskName)
+      val checkpoint = taskCheckpoints.asScala.getOrElse(taskName, null)
+      taskInstance.initTask(Some(checkpoint))
+    }
   }
 
   def startAdmins {

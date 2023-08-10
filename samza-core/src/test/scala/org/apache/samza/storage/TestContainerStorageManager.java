@@ -21,7 +21,9 @@ package org.apache.samza.storage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,8 +32,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import org.apache.samza.Partition;
+import org.apache.samza.SamzaException;
+import org.apache.samza.checkpoint.Checkpoint;
+import org.apache.samza.checkpoint.CheckpointId;
 import org.apache.samza.checkpoint.CheckpointManager;
 import org.apache.samza.checkpoint.CheckpointV1;
 import org.apache.samza.checkpoint.CheckpointV2;
@@ -46,11 +53,23 @@ import org.apache.samza.container.TaskName;
 import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
+import org.apache.samza.job.model.JobModel;
 import org.apache.samza.job.model.TaskMode;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Gauge;
+import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.StringSerdeFactory;
+import org.apache.samza.storage.blobstore.BlobStoreManager;
+import org.apache.samza.storage.blobstore.BlobStoreManagerFactory;
+import org.apache.samza.storage.blobstore.BlobStoreRestoreManager;
+import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
+import org.apache.samza.storage.blobstore.Metadata;
+import org.apache.samza.storage.blobstore.exceptions.DeletedException;
+import org.apache.samza.storage.blobstore.index.DirIndex;
+import org.apache.samza.storage.blobstore.index.SnapshotIndex;
+import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
+import org.apache.samza.storage.blobstore.index.serde.SnapshotIndexSerde;
 import org.apache.samza.system.SSPMetadataCache;
 import org.apache.samza.system.StreamMetadataCache;
 import org.apache.samza.system.SystemAdmin;
@@ -60,19 +79,26 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamMetadata;
 import org.apache.samza.system.SystemStreamPartition;
+import org.apache.samza.task.TaskInstanceCollector;
+import org.apache.samza.util.ReflectionUtil;
 import org.apache.samza.util.SystemClock;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.powermock.api.mockito.PowerMockito;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 import scala.collection.JavaConverters;
 
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-
+@RunWith(PowerMockRunner.class)
+@PrepareForTest({ReflectionUtil.class, ContainerStorageManagerRestoreUtil.class})
 public class TestContainerStorageManager {
 
   private static final String STORE_NAME = "store";
@@ -247,6 +273,9 @@ public class TestContainerStorageManager {
       return CompletableFuture.completedFuture(null);
     }).when(restoreManager).restore();
 
+    Map<TaskName, TaskInstanceCollector> taskInstanceCollectors = new HashMap<>();
+    tasks.keySet().forEach(taskName -> taskInstanceCollectors.put(taskName, mock(TaskInstanceCollector.class)));
+
     // Create the container storage manager
     this.containerStorageManager = new ContainerStorageManager(
         checkpointManager,
@@ -264,7 +293,7 @@ public class TestContainerStorageManager {
         mock(JobContext.class),
         mockContainerContext,
         ImmutableMap.of(StorageConfig.KAFKA_STATE_BACKEND_FACTORY, backendFactory),
-        mock(Map.class),
+        taskInstanceCollectors,
         DEFAULT_LOGGED_STORE_BASE_DIR,
         DEFAULT_STORE_BASE_DIR,
         null,
@@ -500,6 +529,173 @@ public class TestContainerStorageManager {
         factoriesToStores.get("factory1"));
     Assert.assertEquals(ImmutableSet.of("storeName0"),
         factoriesToStores.get("factory2"));
+  }
+
+  @Test
+  public void testInitRecoversFromDeletedException() {
+    TaskName taskName = new TaskName("task");
+    Set<String> stores = Collections.singleton("store");
+
+    BlobStoreRestoreManager taskRestoreManager = mock(BlobStoreRestoreManager.class);
+    Throwable deletedException = new SamzaException(new CompletionException(new DeletedException("410 gone")));
+    doThrow(deletedException).when(taskRestoreManager).init(any(Checkpoint.class));
+    when(taskRestoreManager.restore()).thenReturn(CompletableFuture.completedFuture(null));
+    when(taskRestoreManager.restore(true)).thenReturn(CompletableFuture.completedFuture(null));
+
+    // mock ReflectionUtil.getObj
+    PowerMockito.mockStatic(ReflectionUtil.class);
+    BlobStoreManagerFactory blobStoreManagerFactory = mock(BlobStoreManagerFactory.class);
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    PowerMockito.when(ReflectionUtil.getObj(anyString(), eq(BlobStoreManagerFactory.class)))
+        .thenReturn(blobStoreManagerFactory);
+    when(blobStoreManagerFactory.getRestoreBlobStoreManager(any(Config.class), any(ExecutorService.class)))
+        .thenReturn(blobStoreManager);
+
+    Map<String, TaskRestoreManager> storeTaskRestoreManager = ImmutableMap.of("store", taskRestoreManager);
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    JobContext jobContext = mock(JobContext.class);
+    when(jobContext.getJobModel()).thenReturn(mock(JobModel.class));
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(new TaskName("test"));
+    ContainerModel containerModel = mock(ContainerModel.class);
+    when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
+    Checkpoint checkpoint = mock(CheckpointV2.class);
+    Map<TaskName, Checkpoint> taskCheckpoints = ImmutableMap.of(taskName, checkpoint);
+    Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames =
+        ImmutableMap.of(taskName, ImmutableMap.of(BlobStoreStateBackendFactory.class.getName(), stores));
+    Config config = new MapConfig(ImmutableMap.of("job.name", "test"), ImmutableMap.of("stores.store.backup.factories", BlobStoreStateBackendFactory.class.getName()));
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    SystemConsumer systemConsumer = mock(SystemConsumer.class);
+
+    ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, storeTaskRestoreManager),
+        samzaContainerMetrics, checkpointManager, jobContext, containerModel, taskCheckpoints,
+        taskBackendFactoryToStoreNames, config, executor, new HashMap<>(), null,
+        ImmutableMap.of("store", systemConsumer));
+
+    // verify init() is called twice -> once without getDeleted flag, once with getDeleted flag
+    verify(taskRestoreManager, times(1)).init(any(Checkpoint.class));
+    verify(taskRestoreManager, times(1)).init(any(Checkpoint.class), anyBoolean());
+    // verify restore is called with getDeletedFlag only
+    verify(taskRestoreManager, times(0)).restore();
+    verify(taskRestoreManager, times(1)).restore(true);
+  }
+
+  @Test
+  public void testRestoreRecoversFromDeletedException() throws Exception {
+    TaskName taskName = new TaskName("task");
+    Set<String> stores = Collections.singleton("store");
+
+    BlobStoreRestoreManager taskRestoreManager = mock(BlobStoreRestoreManager.class);
+    doNothing().when(taskRestoreManager).init(any(Checkpoint.class));
+
+    CompletableFuture<Void> failedFuture = CompletableFuture.completedFuture(null)
+        .thenCompose(v -> { throw new DeletedException("410 Gone"); });
+    when(taskRestoreManager.restore()).thenReturn(failedFuture);
+    when(taskRestoreManager.restore(true)).thenReturn(CompletableFuture.completedFuture(null));
+
+    Map<String, TaskRestoreManager> factoryToTaskRestoreManager = ImmutableMap.of(
+        BlobStoreStateBackendFactory.class.getName(), taskRestoreManager);
+
+    JobContext jobContext = mock(JobContext.class);
+    TaskModel taskModel = mock(TaskModel.class);
+    when(taskModel.getTaskName()).thenReturn(taskName);
+    when(taskModel.getTaskMode()).thenReturn(TaskMode.Active);
+
+    ContainerModel containerModel = mock(ContainerModel.class);
+    when(containerModel.getTasks()).thenReturn(ImmutableMap.of(taskName, taskModel));
+
+    CheckpointV2 checkpoint = mock(CheckpointV2.class);
+    when(checkpoint.getOffsets()).thenReturn(ImmutableMap.of());
+    when(checkpoint.getCheckpointId()).thenReturn(CheckpointId.create());
+    when(checkpoint.getStateCheckpointMarkers()).thenReturn(ImmutableMap.of(
+        KafkaChangelogStateBackendFactory.class.getName(), new HashMap<>()));
+
+    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
+
+    String expectedOldBlobId = "oldBlobId";
+    when(checkpoint.getStateCheckpointMarkers()).thenReturn(ImmutableMap.of(
+        BlobStoreStateBackendFactory.class.getName(), ImmutableMap.of("store", expectedOldBlobId)));
+
+    Map<TaskName, Checkpoint> taskCheckpoints = ImmutableMap.of(taskName, checkpoint);
+
+    Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames =
+        ImmutableMap.of(taskName, ImmutableMap.of(
+            BlobStoreStateBackendFactory.class.getName(), stores));
+
+    Config config = new MapConfig(ImmutableMap.of(
+        "blob.store.manager.factory", BlobStoreStateBackendFactory.class.getName(),
+        "job.name", "test"));
+
+    ExecutorService executor = Executors.newFixedThreadPool(5);
+
+    SystemConsumer systemConsumer = mock(SystemConsumer.class);
+
+    // mock ReflectionUtil.getObj
+    PowerMockito.mockStatic(ReflectionUtil.class);
+    BlobStoreManagerFactory blobStoreManagerFactory = mock(BlobStoreManagerFactory.class);
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    PowerMockito.when(ReflectionUtil.getObj(anyString(), eq(BlobStoreManagerFactory.class)))
+        .thenReturn(blobStoreManagerFactory);
+    when(blobStoreManagerFactory.getRestoreBlobStoreManager(any(Config.class), any(ExecutorService.class)))
+        .thenReturn(blobStoreManager);
+
+    // mock ContainerStorageManagerRestoreUtil.backupRecoveredStore
+    String expectedBlobId = "blobId";
+    PowerMockito.spy(ContainerStorageManagerRestoreUtil.class);
+    PowerMockito.doReturn(CompletableFuture.completedFuture(ImmutableMap.of("store", expectedBlobId)))
+        .when(ContainerStorageManagerRestoreUtil.class, "backupRecoveredStore",
+            any(JobContext.class), any(ContainerModel.class), any(Config.class),
+            any(TaskName.class), any(Set.class), any(Checkpoint.class), any(File.class),
+            any(BlobStoreManager.class), any(MetricsRegistry.class), any(ExecutorService.class));
+
+    SnapshotIndex snapshotIndex = new SnapshotIndex(System.currentTimeMillis(),
+        new SnapshotMetadata(CheckpointId.create(), "job", "test", "task", "store"),
+        new DirIndex("test", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()),
+        Optional.empty());
+
+    ArgumentCaptor<String> getBlobIdCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<ByteArrayOutputStream> outputStreamCaptor = ArgumentCaptor.forClass(ByteArrayOutputStream.class);
+    when(blobStoreManager.get(getBlobIdCaptor.capture(), outputStreamCaptor.capture(),
+        any(Metadata.class), any(Boolean.class)))
+        .thenAnswer(invocation -> {
+          ByteArrayOutputStream outputStream = outputStreamCaptor.getValue();
+          outputStream.write(new SnapshotIndexSerde().toBytes(snapshotIndex));
+          return CompletableFuture.completedFuture(null);
+        });
+
+    ArgumentCaptor<String> removeTTLBlobIdCaptor = ArgumentCaptor.forClass(String.class);
+    when(blobStoreManager.removeTTL(removeTTLBlobIdCaptor.capture(), any(Metadata.class)))
+        .thenAnswer(invocation -> CompletableFuture.completedFuture(null));
+
+    ArgumentCaptor<String> deleteBlobIdCaptor = ArgumentCaptor.forClass(String.class);
+    when(blobStoreManager.delete(deleteBlobIdCaptor.capture(), any(Metadata.class)))
+        .thenAnswer(invocation -> CompletableFuture.completedFuture(null));
+
+    Map<TaskName, Checkpoint> updatedTaskCheckpoints =
+        ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, factoryToTaskRestoreManager),
+            samzaContainerMetrics, checkpointManager, jobContext, containerModel, taskCheckpoints,
+            taskBackendFactoryToStoreNames, config, executor, new HashMap<>(), null,
+            ImmutableMap.of("store", systemConsumer)).get();
+
+    // verify taskCheckpoint is updated
+    assertNotEquals(((CheckpointV2) taskCheckpoints.get(taskName)).getCheckpointId(),
+        ((CheckpointV2) updatedTaskCheckpoints.get(taskName)).getCheckpointId());
+
+    // verify init is not retried with getDeleted
+    verify(taskRestoreManager, times(0)).init(any(Checkpoint.class), anyBoolean());
+
+    // verify restore is call twice - once without getDeleted flag, once with getDeleted flag
+    verify(taskRestoreManager, times(1)).restore();
+    verify(taskRestoreManager, times(1)).restore(true);
+
+    // verify the GET and removeTTL was called on the new SnapshotIndex
+    assertEquals(expectedBlobId, getBlobIdCaptor.getAllValues().get(0));
+    assertEquals(expectedBlobId, removeTTLBlobIdCaptor.getAllValues().get(0));
+
+    // verify that GET and delete was called on the old SnapshotIndex
+    assertEquals(expectedOldBlobId, getBlobIdCaptor.getAllValues().get(1));
+    assertEquals(expectedOldBlobId, deleteBlobIdCaptor.getValue());
   }
 
   @Test

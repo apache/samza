@@ -186,7 +186,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
   @Test
   def testInitTask(): Unit = {
-    this.taskInstance.initTask
+    this.taskInstance.initTask(Some(mock[Checkpoint]))
 
     val contextCaptor = ArgumentCaptor.forClass(classOf[Context])
     verify(this.task).init(contextCaptor.capture())
@@ -221,7 +221,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
         null
       }
     })
-    taskInstance.initTask
+    taskInstance.initTask(Some(mock[Checkpoint]))
 
     verify(this.offsetManager).setStartingOffset(TASK_NAME, SYSTEM_STREAM_PARTITION, "10")
   }
@@ -1011,7 +1011,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
   @Test
   def testNoApplicationTaskContextFactoryProvided() {
     setupTaskInstance(None)
-    this.taskInstance.initTask
+    this.taskInstance.initTask(Some(mock[Checkpoint]))
     this.taskInstance.shutdownTask
     verifyZeroInteractions(this.applicationTaskContext)
   }

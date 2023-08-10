@@ -110,10 +110,11 @@ public class BlobStoreUtil {
    * @param checkpoint {@link Checkpoint} instance to get the store state checkpoint markers from. Only
    *                   {@link CheckpointV2} and newer are supported for blob stores.
    * @param storesToBackupOrRestore set of store names to be backed up or restored
+   * @param getDeleted tries gets a deleted but not yet compacted SnapshotIndex from the blob store.
    * @return Map of store name to its blob id of snapshot indices and their corresponding snapshot indices for the task.
    */
-  public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(
-      String jobName, String jobId, String taskName, Checkpoint checkpoint, Set<String> storesToBackupOrRestore) {
+  public Map<String, Pair<String, SnapshotIndex>> getStoreSnapshotIndexes(String jobName, String jobId, String taskName,
+      Checkpoint checkpoint, Set<String> storesToBackupOrRestore, boolean getDeleted) {
     //TODO MED shesharma document error handling (checkpoint ver, blob not found, getBlob)
     if (checkpoint == null) {
       LOG.debug("No previous checkpoint found for taskName: {}", taskName);
@@ -136,11 +137,12 @@ public class BlobStoreUtil {
       storeSnapshotIndexBlobIds.forEach((storeName, snapshotIndexBlobId) -> {
         if (storesToBackupOrRestore.contains(storeName)) {
           try {
-            LOG.debug("Getting snapshot index for taskName: {} store: {} blobId: {}", taskName, storeName, snapshotIndexBlobId);
+            LOG.debug("Getting snapshot index for taskName: {} store: {} blobId: {} with getDeleted set to {}",
+                taskName, storeName, snapshotIndexBlobId, getDeleted);
             Metadata requestMetadata =
                 new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
             CompletableFuture<SnapshotIndex> snapshotIndexFuture =
-                getSnapshotIndex(snapshotIndexBlobId, requestMetadata).toCompletableFuture();
+                getSnapshotIndex(snapshotIndexBlobId, requestMetadata, getDeleted).toCompletableFuture();
             Pair<CompletableFuture<String>, CompletableFuture<SnapshotIndex>> pairOfFutures =
                 Pair.of(CompletableFuture.completedFuture(snapshotIndexBlobId), snapshotIndexFuture);
 
@@ -162,15 +164,7 @@ public class BlobStoreUtil {
     }
 
     try {
-      return FutureUtil.toFutureOfMap(t -> {
-        Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class, t);
-        if (unwrappedException instanceof DeletedException) {
-          LOG.warn("Ignoring already deleted snapshot index for taskName: {}", taskName, t);
-          return true;
-        } else {
-          return false;
-        }
-      }, storeSnapshotIndexFutures).join();
+      return FutureUtil.toFutureOfMap(storeSnapshotIndexFutures).join();
     } catch (Exception e) {
       throw new SamzaException(
           String.format("Error while waiting to get store snapshot indexes for task %s", taskName), e);
@@ -182,12 +176,12 @@ public class BlobStoreUtil {
    * @param blobId blob ID of the {@link SnapshotIndex} to get
    * @return a Future containing the {@link SnapshotIndex}
    */
-  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata) {
+  public CompletableFuture<SnapshotIndex> getSnapshotIndex(String blobId, Metadata metadata, boolean getDeleted) {
     Preconditions.checkState(StringUtils.isNotBlank(blobId));
     String opName = "getSnapshotIndex: " + blobId;
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
-      return blobStoreManager.get(blobId, indexBlobStream, metadata).toCompletableFuture()
+      return blobStoreManager.get(blobId, indexBlobStream, metadata, getDeleted).toCompletableFuture()
           .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
     }, isCauseNonRetriable(), executor, retryPolicyConfig);
   }
@@ -211,6 +205,51 @@ public class BlobStoreUtil {
   }
 
   /**
+   * Gets SnapshotIndex blob, cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs
+   * inside the SnapshotIndex and finally deletes SnapshotIndex blob itself.
+   * @param snapshotIndexBlobId Blob id of SnapshotIndex
+   * @param requestMetadata Metadata of the request
+   * @param getDeleted Determines whether to try to get deleted SnapshotIndex or not.
+   */
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, Metadata requestMetadata, boolean getDeleted) {
+    Metadata getSnapshotRequest = new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), requestMetadata.getJobName(),
+        requestMetadata.getJobId(), requestMetadata.getTaskName(), requestMetadata.getStoreName());
+    return getSnapshotIndex(snapshotIndexBlobId, getSnapshotRequest, getDeleted)
+        .thenCompose(snapshotIndex -> cleanSnapshotIndex(snapshotIndexBlobId, snapshotIndex, requestMetadata));
+  }
+
+  /**
+   * Cleans up a SnapshotIndex by recursively deleting all blobs associated with files/subdirs inside the SnapshotIndex
+   * and finally deletes SnapshotIndex blob itself.
+   * @param snapshotIndexBlobId Blob if of SnapshotIndex
+   * @param snapshotIndex SnapshotIndex to delete
+   * @param requestMetadata Metadata of the request
+   */
+  public CompletionStage<Void> cleanSnapshotIndex(String snapshotIndexBlobId, SnapshotIndex snapshotIndex, Metadata requestMetadata) {
+    DirIndex dirIndex = snapshotIndex.getDirIndex();
+    CompletionStage<Void> storeDeletionFuture =
+        cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
+            .thenComposeAsync(v ->
+                deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
+            .thenComposeAsync(v -> deleteSnapshotIndexBlob(snapshotIndexBlobId, requestMetadata), executor) // delete the snapshot index blob
+            .exceptionally(ex -> {
+              Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class,
+                  FutureUtil.unwrapExceptions(SamzaException.class, ex));
+              // If a blob is already deleted, do not fail -> this may happen if after we restore a
+              // deleted checkpoint and then try to clean up old checkpoint.
+              if (unwrappedException instanceof DeletedException) {
+                LOG.warn("Request {} received DeletedException on trying to clean up SnapshotIndex {}. Ignoring the error.",
+                    requestMetadata, snapshotIndexBlobId);
+                return null;
+              }
+              String msg = String.format("Request %s received error deleting/cleaning up SnapshotIndex: %s",
+                  requestMetadata, snapshotIndexBlobId);
+              throw new SamzaException(msg, ex);
+            });
+    return storeDeletionFuture;
+  }
+
+  /**
    * WARNING: This method deletes the **SnapshotIndex blob** from the snapshot. This should only be called to clean
    * up an older snapshot **AFTER** all the files and sub-dirs to be deleted from this snapshot are already deleted
    * using {@link #cleanUpDir(DirIndex, Metadata)}
@@ -229,10 +268,11 @@ public class BlobStoreUtil {
   /**
    * Non-blocking restore of a {@link SnapshotIndex} to local store by downloading all the files and sub-dirs associated
    * with this remote snapshot.
+   * NOTE: getDeleted flag sets if it reattempts to get a deleted file by setting getDeleted flag in getFiles.
    * @return A future that completes when all the async downloads completes
    */
-  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata) {
-    LOG.debug("Restoring contents of directory: {} from remote snapshot.", baseDir);
+  public CompletableFuture<Void> restoreDir(File baseDir, DirIndex dirIndex, Metadata metadata, boolean getDeleted) {
+    LOG.debug("Restoring contents of directory: {} from remote snapshot. GetDeletedFiles set to: {}", baseDir, getDeleted);
 
     List<CompletableFuture<Void>> downloadFutures = new ArrayList<>();
 
@@ -255,7 +295,7 @@ public class BlobStoreUtil {
 
       String opName = "restoreFile: " + fileToRestore.getAbsolutePath();
       CompletableFuture<Void> fileRestoreFuture =
-          FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata),
+          FutureUtil.executeAsyncWithRetries(opName, () -> getFile(fileBlobs, fileToRestore, requestMetadata, getDeleted),
               isCauseNonRetriable(), executor, retryPolicyConfig);
       downloadFutures.add(fileRestoreFuture);
     }
@@ -264,7 +304,7 @@ public class BlobStoreUtil {
     List<DirIndex> subDirs = dirIndex.getSubDirsPresent();
     for (DirIndex subDir : subDirs) {
       File subDirFile = Paths.get(baseDir.getAbsolutePath(), subDir.getDirName()).toFile();
-      downloadFutures.add(restoreDir(subDirFile, subDir, metadata));
+      downloadFutures.add(restoreDir(subDirFile, subDir, metadata, getDeleted));
     }
 
     return FutureUtil.allOf(downloadFutures);
@@ -397,10 +437,11 @@ public class BlobStoreUtil {
    * @param fileBlobs List of {@link FileBlob}s that constitute this file.
    * @param fileToRestore File pointing to the local path where the file will be restored.
    * @param requestMetadata {@link Metadata} associated with this request
+   * @param getDeleted Flag that indicates whether to try to get Deleted (but not yet compacted) files.
    * @return a future that completes when the file is downloaded and written or if an exception occurs.
    */
   @VisibleForTesting
-  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata) {
+  CompletableFuture<Void> getFile(List<FileBlob> fileBlobs, File fileToRestore, Metadata requestMetadata, boolean getDeleted) {
     FileOutputStream outputStream = null;
     try {
       long restoreFileStartTime = System.nanoTime();
@@ -422,9 +463,9 @@ public class BlobStoreUtil {
       CompletableFuture<Void> resultFuture = CompletableFuture.completedFuture(null);
       for (FileBlob fileBlob : fileBlobsCopy) {
         resultFuture = resultFuture.thenComposeAsync(v -> {
-          LOG.debug("Starting restore for file: {} with blob id: {} at offset: {}", fileToRestore, fileBlob.getBlobId(),
-              fileBlob.getOffset());
-          return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata);
+          LOG.debug("Starting restore for file: {} with blob id: {} at offset: {} with getDeleted set to: {}",
+              fileToRestore, fileBlob.getBlobId(), fileBlob.getOffset(), getDeleted);
+          return blobStoreManager.get(fileBlob.getBlobId(), finalOutputStream, requestMetadata, getDeleted);
         }, executor);
       }
 
@@ -566,6 +607,44 @@ public class BlobStoreUtil {
   }
 
   /**
+   * Get the {@link SnapshotIndex} using the blob id and marks all the blobs associated with it to never expire,
+   * including the SnapshotIndex itself.
+   * @param indexBlobId Blob id of {@link SnapshotIndex}
+   * @param metadata {@link Metadata} related to the request
+   * @return A future that completes when all the files and subdirs associated with this remote snapshot, as well as
+   * the {@link SnapshotIndex} associated with the snapshot are marked to never expire.
+   */
+  public CompletableFuture<Void> removeTTLForSnapshotIndex(String indexBlobId, Metadata metadata) {
+    return getSnapshotIndex(indexBlobId, metadata, false)
+        .thenCompose(snapshotIndex -> removeTTL(indexBlobId, snapshotIndex, metadata));
+  }
+
+  /**
+   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire, including the SnapshotIndex
+   * @param snapshotIndex {@link SnapshotIndex} of the remote snapshot
+   * @param metadata {@link Metadata} related to the request
+   * @return A future that completes when all the files and subdirs associated with this remote snapshot are marked to
+   * never expire.
+   */
+  public CompletionStage<Void> removeTTL(String indexBlobId, SnapshotIndex snapshotIndex, Metadata metadata) {
+    SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
+    LOG.debug("Marking contents of SnapshotIndex: {} to never expire", snapshotMetadata.toString());
+
+    String opName = "removeTTL for SnapshotIndex for checkpointId: " + snapshotMetadata.getCheckpointId();
+    Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
+      () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
+    CompletableFuture<Void> dirIndexTTLRemovalFuture =
+        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
+
+    return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
+      String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
+      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction =
+        () -> blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
+      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
+    }, executor);
+  }
+
+  /**
    * Recursively mark all the blobs associated with the {@link DirIndex} to never expire (remove TTL).
    * @param dirIndex the {@link DirIndex} whose contents' TTL needs to be removed
    * @param metadata {@link Metadata} related to the request
@@ -601,32 +680,6 @@ public class BlobStoreUtil {
     }
 
     return CompletableFuture.allOf(updateTTLsFuture.toArray(new CompletableFuture[0]));
-  }
-
-
-  /**
-   * Marks all the blobs associated with an {@link SnapshotIndex} to never expire.
-   * @param snapshotIndex {@link SnapshotIndex} of the remote snapshot
-   * @param metadata {@link Metadata} related to the request
-   * @return A future that completes when all the files and subdirs associated with this remote snapshot are marked to
-   * never expire.
-   */
-  public CompletionStage<Void> removeTTL(String indexBlobId, SnapshotIndex snapshotIndex, Metadata metadata) {
-    SnapshotMetadata snapshotMetadata = snapshotIndex.getSnapshotMetadata();
-    LOG.debug("Marking contents of SnapshotIndex: {} to never expire", snapshotMetadata.toString());
-
-    String opName = "removeTTL for SnapshotIndex for checkpointId: " + snapshotMetadata.getCheckpointId();
-    Supplier<CompletionStage<Void>> removeDirIndexTTLAction =
-      () -> removeTTL(snapshotIndex.getDirIndex(), metadata).toCompletableFuture();
-    CompletableFuture<Void> dirIndexTTLRemovalFuture =
-        FutureUtil.executeAsyncWithRetries(opName, removeDirIndexTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
-
-    return dirIndexTTLRemovalFuture.thenComposeAsync(aVoid -> {
-      String op2Name = "removeTTL for indexBlobId: " + indexBlobId;
-      Supplier<CompletionStage<Void>> removeIndexBlobTTLAction =
-        () -> blobStoreManager.removeTTL(indexBlobId, metadata).toCompletableFuture();
-      return FutureUtil.executeAsyncWithRetries(op2Name, removeIndexBlobTTLAction, isCauseNonRetriable(), executor, retryPolicyConfig);
-    }, executor);
   }
 
   private static Predicate<Throwable> isCauseNonRetriable() {
