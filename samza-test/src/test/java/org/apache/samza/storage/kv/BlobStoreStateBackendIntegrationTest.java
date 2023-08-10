@@ -130,7 +130,7 @@ public class BlobStoreStateBackendIntegrationTest extends BaseStateBackendIntegr
 
   private final boolean hostAffinity;
 
-  private final Logger LOG = LoggerFactory.getLogger(BlobStoreStateBackendIntegrationTest.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BlobStoreStateBackendIntegrationTest.class);
 
   public BlobStoreStateBackendIntegrationTest(boolean hostAffinity) {
     this.hostAffinity = hostAffinity;
