@@ -53,6 +53,10 @@ public class RunLoopConfig {
     return taskConfig.getDrainCallbackTimeoutMs();
   }
 
+  public long getWatermarkCallbackTimeoutMs() {
+    return taskConfig.getWatermarkCallbackTimeoutMs();
+  }
+
   public boolean asyncCommitEnabled() {
     return taskConfig.getAsyncCommit();
   }

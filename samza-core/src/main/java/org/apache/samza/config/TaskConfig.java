@@ -97,6 +97,8 @@ public class TaskConfig extends MapConfig {
   // default timeout for triggering a callback during drain
   static final long DEFAULT_DRAIN_CALLBACK_TIMEOUT_MS = -1L;
 
+  public static final String WATERMARK_CALLBACK_TIMEOUT_MS = "task.callback.watermark.timeout.ms";
+
   // enable async commit
   public static final String ASYNC_COMMIT = "task.async.commit";
   // maximum time to wait for a task worker to complete when there are no new messages to handle
@@ -233,6 +235,10 @@ public class TaskConfig extends MapConfig {
 
   public long getDrainCallbackTimeoutMs() {
     return getLong(DRAIN_CALLBACK_TIMEOUT_MS, DEFAULT_DRAIN_CALLBACK_TIMEOUT_MS);
+  }
+
+  public long getWatermarkCallbackTimeoutMs() {
+    return getLong(WATERMARK_CALLBACK_TIMEOUT_MS, getCallbackTimeoutMs());
   }
 
   public boolean getAsyncCommit() {

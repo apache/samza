@@ -109,16 +109,9 @@ public class TaskCallbackManager {
    * @param taskName task name
    * @param envelope incoming envelope
    * @param coordinator coordinator
-   * @param drainTimeout timeout for processing drain messages.
+   * @param callbackTimeout timeout to expire the callback
    * */
-  public TaskCallbackImpl createCallbackForDrain(TaskName taskName,
-      IncomingMessageEnvelope envelope,
-      ReadableCoordinator coordinator,
-      long drainTimeout) {
-    return createCallback(taskName, envelope, coordinator, drainTimeout);
-  }
-
-  private TaskCallbackImpl createCallback(TaskName taskName,
+  public TaskCallbackImpl createCallback(TaskName taskName,
       IncomingMessageEnvelope envelope,
       ReadableCoordinator coordinator,
       long callbackTimeout) {
@@ -129,7 +122,7 @@ public class TaskCallbackManager {
         @Override
         public void run() {
           ThreadUtil.logThreadDump("Thread dump at task callback timeout");
-          String msg = "Callback for task {} " + callback.taskName + " timed out after " + timeout + " ms.";
+          String msg = "Callback for task {} " + callback.taskName + " timed out after " + callbackTimeout + " ms.";
           callback.failure(new SamzaException(msg));
         }
       };

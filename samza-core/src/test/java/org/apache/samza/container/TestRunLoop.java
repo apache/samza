@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.samza.Partition;
 import org.apache.samza.SamzaException;
@@ -48,7 +49,7 @@ import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
 
@@ -89,6 +90,8 @@ public class TestRunLoop {
   private final IncomingMessageEnvelope sspA1Drain = IncomingMessageEnvelope.buildDrainMessage(sspA1, runId);
   private final IncomingMessageEnvelope sspB0Drain = IncomingMessageEnvelope.buildDrainMessage(sspB0, runId);
   private final IncomingMessageEnvelope sspB1Drain = IncomingMessageEnvelope.buildDrainMessage(sspB1, runId);
+
+  private final IncomingMessageEnvelope watermarkA0 = IncomingMessageEnvelope.buildWatermarkEnvelope(sspA0, 1L);
 
   @Rule
   public Timeout maxTestDurationInSeconds = Timeout.seconds(120);
@@ -734,6 +737,91 @@ public class TestRunLoop {
         .thenReturn(null);
 
     runLoop.run();
+  }
+
+  @Test
+  public void testWatermarkCallbackTimeout() throws InterruptedException {
+    final CountDownLatch watermarkProcessLatch = new CountDownLatch(1);
+
+    when(mockRunLoopConfig.getTaskCallbackTimeoutMs()).thenReturn(5L);
+    when(mockRunLoopConfig.getWatermarkCallbackTimeoutMs()).thenReturn(15L);
+
+    SystemConsumers consumers = mock(SystemConsumers.class);
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      Thread.sleep(10);
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(watermarkA0), any(), any());
+
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      callbackFactory.createCallback().complete();
+      return null;
+    }).when(task0).process(eq(envelopeA00), any(), any());
+
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      watermarkProcessLatch.countDown();
+      callbackFactory.createCallback().complete();
+      return null;
+    }).when(task0).process(eq(envelopeA01), any(), any());
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
+
+    RunLoop runLoop = new RunLoop(tasks, executor, consumers, containerMetrics, () -> 0L, mockRunLoopConfig);
+
+    when(consumers.choose(false))
+        .thenReturn(envelopeA00)
+        .thenReturn(watermarkA0)
+        .thenReturn(envelopeA01)
+        .thenReturn(sspA0EndOfStream)
+        .thenReturn(null);
+
+    runLoop.run();
+    assertTrue(watermarkProcessLatch.await(15L, TimeUnit.MILLISECONDS));
+  }
+
+  @Test
+  public void testWatermarkCallbackTimeoutThrowsException() {
+    when(mockRunLoopConfig.getTaskCallbackTimeoutMs()).thenReturn(10L);
+    when(mockRunLoopConfig.getWatermarkCallbackTimeoutMs()).thenReturn(1L);
+
+    SystemConsumers consumers = mock(SystemConsumers.class);
+
+    RunLoopTask task0 = getMockRunLoopTask(taskName0, sspA0);
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      TaskCallback callback = callbackFactory.createCallback();
+      Thread.sleep(5);
+      callback.complete();
+      return null;
+    }).when(task0).process(eq(watermarkA0), any(), any());
+
+    doAnswer(invocation -> {
+      TaskCallbackFactory callbackFactory = invocation.getArgumentAt(2, TaskCallbackFactory.class);
+      callbackFactory.createCallback().complete();
+      return null;
+    }).when(task0).process(eq(envelopeA00), any(), any());
+
+    Map<TaskName, RunLoopTask> tasks = ImmutableMap.of(taskName0, task0);
+
+    RunLoop runLoop = new RunLoop(tasks, executor, consumers, containerMetrics, () -> 0L, mockRunLoopConfig);
+
+    when(consumers.choose(false))
+        .thenReturn(envelopeA00)
+        .thenReturn(watermarkA0)
+        .thenReturn(null);
+
+    try {
+      runLoop.run();
+      fail("Watermark callback should have timed out and failed run loop");
+    } catch (SamzaException e) {
+
+    }
   }
 
   private RunLoopTask getMockRunLoopTask(TaskName taskName, SystemStreamPartition ... ssps) {

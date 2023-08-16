@@ -67,10 +67,10 @@ public class TestTaskCallbackManager {
 
   @Test
   public void testCreateDrainCallback() {
-    TaskCallbackImpl callback = callbackManager.createCallbackForDrain(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
+    TaskCallbackImpl callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
     assertTrue(callback.matchSeqNum(0));
 
-    callback = callbackManager.createCallbackForDrain(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
+    callback = callbackManager.createCallback(new TaskName("Partition 0"), mock(IncomingMessageEnvelope.class), null, -1);
     assertTrue(callback.matchSeqNum(1));
   }
 
