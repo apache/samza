@@ -319,19 +319,6 @@ public class ContainerStorageManager {
       Map<TaskName, Checkpoint> newTaskCheckpoints = initRestoreAndNewCheckpointFuture.get();
       taskCheckpoints.putAll(newTaskCheckpoints);
       LOG.debug("Post init and restore checkpoints is: {}. NewTaskCheckpoints are: {}", taskCheckpoints, newTaskCheckpoints);
-      // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-      // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-      taskRestoreManagers.forEach((taskName, factoryRestoreManager) -> {
-        factoryRestoreManager.values().forEach(taskRestoreManager -> {
-          try {
-            taskRestoreManager.close();
-          } catch (Exception e) {
-            LOG.error("Error closing restore manager for task: {} after {} restore", taskName, e);
-            // ignore exception from close. container may still be able to continue processing/backups
-            // if restore manager close fails.
-          }
-        });
-      });
     } catch (InterruptedException e) {
       LOG.warn("Received an interrupt during store restoration. Interrupting the restore executor to exit "
           + "prematurely without restoring full state.");
