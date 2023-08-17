@@ -169,11 +169,12 @@ public class ContainerStorageManagerRestoreUtil {
                   restoreDeletedSnapshot(taskInstanceName, taskCheckpoints,
                       checkpointManager, taskRestoreManager, config, taskInstanceMetrics, executor,
                       taskBackendFactoryToStoreNames.get(taskInstanceName).get(factoryName), loggedStoreDir,
-                      jobContext, containerModel);
-              future.whenComplete((r, e) -> {
-                updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
-                closeTaskRestoreManager(taskRestoreManager, taskName);
-              });
+                      jobContext, containerModel).whenComplete((r, e) -> {
+                        updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
+                        // NOTE: taskRestoreManager should only be closed after the initial restore or the retried restore
+                        // attempt (the case here) future is complete.
+                        closeTaskRestoreManager(taskRestoreManager, taskName);
+                      });
               newTaskCheckpoints.put(taskInstanceName, future);
             } else {
               // log and rethrow exception to communicate restore failure
@@ -182,10 +183,8 @@ public class ContainerStorageManagerRestoreUtil {
               throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
             }
           } else {
-            // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-            // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-            // NOTE: closing the taskRestoreManager outside this else block may cause taskRestoreManager to be closed
-            // before async restoreDeletedSnapshot() is complete.
+            // NOTE: taskRestoreManager should only be closed after the initial restore (the case here) or the retried
+            // restore attempt future is complete.
             closeTaskRestoreManager(taskRestoreManager, taskName);
           }
           return null;
@@ -355,6 +354,12 @@ public class ContainerStorageManagerRestoreUtil {
     return unwrappedException instanceof DeletedException;
   }
 
+  /**
+   * Stop persistent stores.
+   * NOTE: Call this method concurrently for all {@link TaskRestoreManager}s so that stop() can be parallelized.
+   * Certain persistent stores opened in BulkLoad mode are compacted on stop, so paralleling stop()
+   * also parallelizes their compaction (a time-intensive operation).
+   */
   private static void closeTaskRestoreManager(TaskRestoreManager taskRestoreManager, String taskName) {
     try {
       taskRestoreManager.close();
