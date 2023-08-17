@@ -185,17 +185,6 @@ public class ContainerStorageManagerRestoreUtil {
               throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
             }
           }
-
-          // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-          // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-          try {
-            taskRestoreManager.close();
-          } catch (Exception e) {
-            LOG.error("Error closing restore manager for task: {} after {} restore", taskName,
-                ex != null ? "unsuccessful" : "successful", e);
-            // ignore exception from close. container may still be able to continue processing/backups
-            // if restore manager close fails.
-          }
           return null;
         });
         taskRestoreFutures.add(taskRestoreFuture);
@@ -338,7 +327,9 @@ public class ContainerStorageManagerRestoreUtil {
     BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
     String blobStoreManagerFactory = blobStoreConfig.getBlobStoreManagerFactory();
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
-    return factory.getRestoreBlobStoreManager(config, executor);
+    BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, executor);
+    blobStoreManager.init();
+    return blobStoreManager;
   }
 
   private static void updateRestoreTime(long startTime, SamzaContainerMetrics samzaContainerMetrics,
