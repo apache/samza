@@ -170,20 +170,23 @@ public class ContainerStorageManagerRestoreUtil {
                       checkpointManager, taskRestoreManager, config, taskInstanceMetrics, executor,
                       taskBackendFactoryToStoreNames.get(taskInstanceName).get(factoryName), loggedStoreDir,
                       jobContext, containerModel);
-              try {
-                newTaskCheckpoints.put(taskInstanceName, future);
-              } catch (Exception e) {
-                String msg = String.format("DeletedException during restore task: %s after retrying to get deleted blobs.", taskName);
-                throw new SamzaException(msg, e);
-              } finally {
+              future.whenComplete((r, e) -> {
                 updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
-              }
+                closeTaskRestoreManager(taskRestoreManager, taskName);
+              });
+              newTaskCheckpoints.put(taskInstanceName, future);
             } else {
               // log and rethrow exception to communicate restore failure
               String msg = String.format("Error restoring state for task: %s", taskName);
               LOG.error(msg, ex);
               throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
             }
+          } else {
+            // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
+            // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
+            // NOTE: closing the taskRestoreManager outside this else block may cause taskRestoreManager to be closed
+            // before async restoreDeletedSnapshot() is complete.
+            closeTaskRestoreManager(taskRestoreManager, taskName);
           }
           return null;
         });
@@ -215,6 +218,7 @@ public class ContainerStorageManagerRestoreUtil {
             : new MetricsRegistryMap();
 
     BlobStoreManager blobStoreManager = getBlobStoreManager(config, executor);
+    blobStoreManager.init();
     JobConfig jobConfig = new JobConfig(config);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(blobStoreManager, executor, new BlobStoreConfig(config), null,
@@ -258,10 +262,13 @@ public class ContainerStorageManagerRestoreUtil {
         return CompletableFuture.allOf(deletePrevSnapshotFutures.toArray(new CompletableFuture[0]));
       });
 
-    // 5. create new checkpoint
     CompletableFuture<Checkpoint> newTaskCheckpointsFuture =
-        deleteOldSnapshotsFuture.thenCombine(backupStoresFuture, (aVoid, scms) ->
-            writeNewCheckpoint(taskName, checkpointId, scms, checkpointManager));
+        deleteOldSnapshotsFuture.thenCombine(backupStoresFuture, (aVoid, scms) -> {
+          // cleanup resources
+          blobStoreManager.close();
+          // 5. create new checkpoint
+          return writeNewCheckpoint(taskName, checkpointId, scms, checkpointManager);
+        });
 
     return newTaskCheckpointsFuture.exceptionally(ex -> {
       String msg = String.format("Could not restore task: %s after attempting to restore deleted blobs.", taskName);
@@ -327,9 +334,7 @@ public class ContainerStorageManagerRestoreUtil {
     BlobStoreConfig blobStoreConfig = new BlobStoreConfig(config);
     String blobStoreManagerFactory = blobStoreConfig.getBlobStoreManagerFactory();
     BlobStoreManagerFactory factory = ReflectionUtil.getObj(blobStoreManagerFactory, BlobStoreManagerFactory.class);
-    BlobStoreManager blobStoreManager = factory.getRestoreBlobStoreManager(config, executor);
-    blobStoreManager.init();
-    return blobStoreManager;
+    return factory.getRestoreBlobStoreManager(config, executor);
   }
 
   private static void updateRestoreTime(long startTime, SamzaContainerMetrics samzaContainerMetrics,
@@ -348,5 +353,15 @@ public class ContainerStorageManagerRestoreUtil {
     Throwable unwrappedException = FutureUtil.unwrapExceptions(CompletionException.class,
         FutureUtil.unwrapExceptions(SamzaException.class, ex));
     return unwrappedException instanceof DeletedException;
+  }
+
+  private static void closeTaskRestoreManager(TaskRestoreManager taskRestoreManager, String taskName) {
+    try {
+      taskRestoreManager.close();
+    } catch (Exception exception) {
+      LOG.error("Error closing restore manager for task: {} after {} restore", taskName, exception);
+      // ignore exception from close. container may still be able to continue processing/backups
+      // if restore manager close fails.
+    }
   }
 }
