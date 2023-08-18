@@ -28,12 +28,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import org.apache.commons.io.FileUtils;
@@ -136,7 +134,7 @@ public class ContainerStorageManagerRestoreUtil {
       File loggedStoreDir, Set<String> forceRestoreTask) {
 
     Map<TaskName, Checkpoint> newTaskCheckpoints = new ConcurrentHashMap<>();
-    Queue<Future<Void>> restoreAndCleanupFutures = new ConcurrentLinkedQueue<>();
+    List<Future<Void>> restoreAndCleanupFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
     taskRestoreManagers.forEach((taskInstanceName, restoreManagersMap) -> {
