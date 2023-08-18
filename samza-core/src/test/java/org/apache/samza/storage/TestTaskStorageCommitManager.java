@@ -86,7 +86,7 @@ public class TestTaskStorageCommitManager {
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null, null);
 
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
-    cm.init();
+    cm.init(checkpoint);
     verify(taskBackupManager1).init(eq(checkpoint));
     verify(taskBackupManager2).init(eq(checkpoint));
   }
@@ -105,7 +105,7 @@ public class TestTaskStorageCommitManager {
     TaskStorageCommitManager cm = new TaskStorageCommitManager(task, backupManagers, containerStorageManager,
         Collections.emptyMap(), new Partition(1), null, new MapConfig(),
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null, null);
-    cm.init();
+    cm.init(null);
     verify(taskBackupManager1).init(eq(null));
     verify(taskBackupManager2).init(eq(null));
   }
@@ -130,7 +130,7 @@ public class TestTaskStorageCommitManager {
         Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(),
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null, metrics);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
-    cm.init();
+    cm.init(checkpoint);
     verify(taskBackupManager1).init(eq(checkpoint));
     verify(taskBackupManager2).init(eq(checkpoint));
 
@@ -220,7 +220,7 @@ public class TestTaskStorageCommitManager {
         Collections.emptyMap(), new Partition(1), checkpointManager, new MapConfig(),
         ForkJoinPool.commonPool(), new StorageManagerUtil(), null, metrics);
     when(checkpointManager.readLastCheckpoint(taskName)).thenReturn(checkpoint);
-    cm.init();
+    cm.init(checkpoint);
     verify(taskBackupManager1).init(eq(checkpoint));
     verify(taskBackupManager2).init(eq(checkpoint));
 
@@ -243,7 +243,7 @@ public class TestTaskStorageCommitManager {
         .thenReturn(CompletableFuture.completedFuture(factory2Checkpoints));
     when(mockLIStore.checkpoint(newCheckpointId)).thenReturn(Optional.empty());
 
-    cm.init();
+    cm.init(checkpoint);
     cm.snapshot(newCheckpointId);
 
     // Assert stores where flushed
@@ -295,7 +295,7 @@ public class TestTaskStorageCommitManager {
 
     when(containerStorageManager.getAllStores(taskName)).thenReturn(storageEngines);
     CheckpointId newCheckpointId = CheckpointId.create();
-    cm.init();
+    cm.init(null);
     cm.snapshot(newCheckpointId);
 
     // Assert stores where flushed
@@ -457,7 +457,7 @@ public class TestTaskStorageCommitManager {
         changelogSSP, kafkaChangelogSSPOffset.toString()
     );
 
-    commitManager.init();
+    commitManager.init(null);
     // invoke persist to file system for v2 checkpoint
     commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
@@ -564,7 +564,7 @@ public class TestTaskStorageCommitManager {
     );
     CheckpointV2 checkpoint = new CheckpointV2(newCheckpointId, Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
 
-    commitManager.init();
+    commitManager.init(null);
     // invoke persist to file system
     commitManager.writeCheckpointToStoreDirectories(checkpoint);
     // Validate only durable and persisted stores are persisted
@@ -634,7 +634,7 @@ public class TestTaskStorageCommitManager {
         changelogSSP, kafkaChangelogSSPOffset.toString()
     );
 
-    commitManager.init();
+    commitManager.init(null);
     // invoke persist to file system for v2 checkpoint
     commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
@@ -722,7 +722,7 @@ public class TestTaskStorageCommitManager {
         changelogSSP, kafkaChangelogSSPOffset.toString()
     );
 
-    commitManager.init();
+    commitManager.init(null);
     // invoke persist to file system for v1 checkpoint
     commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
 
@@ -824,7 +824,7 @@ public class TestTaskStorageCommitManager {
         changelogSSP, kafkaChangelogSSPOffset.toString()
     );
 
-    commitManager.init();
+    commitManager.init(null);
     // invoke persist to file system for v2 checkpoint
     commitManager.writeCheckpointToStoreDirectories(new CheckpointV1(offsetsJava));
     assertTrue(mockFileSystem.isEmpty());
@@ -870,7 +870,7 @@ public class TestTaskStorageCommitManager {
     CheckpointV2 checkpoint = new CheckpointV2(CheckpointId.create(), Collections.emptyMap(), Collections.singletonMap("factory", storeSCM));
     doThrow(IOException.class).when(storageManagerUtil).writeCheckpointV2File(eq(tmpTestPath), eq(checkpoint));
 
-    commitManager.init();
+    commitManager.init(null);
     // Should throw samza exception since writeCheckpointV2 failed
     commitManager.writeCheckpointToStoreDirectories(checkpoint);
   }

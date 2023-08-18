@@ -119,16 +119,30 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
   @Override
   public void init(Checkpoint checkpoint) {
+    // By default, init without retrying deleted SnapshotIndex blob. We want the init to fail if the SnapshotIndex blob
+    // was deleted. This allows us to mark the task for a full restore in restore().
+    init(checkpoint, false);
+  }
+
+  /**
+   * Initialize state resources such as store directories.
+   * NOTE: init can be called twice. In case init fails with DeletedException for the first time, it will be retried with
+   *       getDeleted set to true.
+   * @param checkpoint Current task checkpoint
+   * @param getDeleted Flag to get deleted SnapshotIndex blob
+   */
+  public void init(Checkpoint checkpoint, boolean getDeleted) {
     long startTime = System.nanoTime();
-    LOG.debug("Initializing blob store restore manager for task: {}", taskName);
+    LOG.debug("Initializing blob store restore manager for task {} with getDeleted {}", taskName, getDeleted);
 
     blobStoreManager.init();
 
     // get previous SCMs from checkpoint
-    prevStoreSnapshotIndexes = blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore);
+    prevStoreSnapshotIndexes =
+        blobStoreUtil.getStoreSnapshotIndexes(jobName, jobId, taskName, checkpoint, storesToRestore, getDeleted);
     metrics.getSnapshotIndexNs.set(System.nanoTime() - startTime);
-    LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {}",
-        taskName, prevStoreSnapshotIndexes);
+    LOG.trace("Found previous snapshot index during blob store restore manager init for task: {} to be: {} with getDeleted set to {}",
+        taskName, prevStoreSnapshotIndexes, getDeleted);
 
     metrics.initStoreMetrics(storesToRestore);
 
@@ -150,7 +164,17 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @Override
   public CompletableFuture<Void> restore() {
     return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
-        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor);
+        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, false);
+  }
+
+  /**
+   * Restore state from checkpoints and state snapshots.
+   * @param restoreDeleted This flag forces the restore to always download the state from blob store with the get deleted
+   *                       flag enabled.
+   */
+  public CompletableFuture<Void> restore(boolean restoreDeleted) {
+    return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes,
+        loggedBaseDir, storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, restoreDeleted);
   }
 
   @Override
@@ -186,17 +210,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       if (!storesToBackup.contains(storeName) && !storesToRestore.contains(storeName)) {
         LOG.info("Removing task: {} store: {} from blob store. It is either no longer used, " +
             "or is no longer configured to be backed up or restored with blob store.", taskName, storeName);
-        DirIndex dirIndex = scmAndSnapshotIndex.getRight().getDirIndex();
         Metadata requestMetadata =
             new Metadata(Metadata.SNAPSHOT_INDEX_PAYLOAD_PATH, Optional.empty(), jobName, jobId, taskName, storeName);
-        CompletionStage<Void> storeDeletionFuture =
-            blobStoreUtil.cleanUpDir(dirIndex, requestMetadata) // delete files and sub-dirs previously marked for removal
-                .thenComposeAsync(v ->
-                    blobStoreUtil.deleteDir(dirIndex, requestMetadata), executor) // deleted files and dirs still present
-                .thenComposeAsync(v -> blobStoreUtil.deleteSnapshotIndexBlob(
-                    scmAndSnapshotIndex.getLeft(), requestMetadata),
-                    executor); // delete the snapshot index blob
-        storeDeletionFutures.add(storeDeletionFuture);
+        storeDeletionFutures.add(blobStoreUtil.cleanSnapshotIndex(scmAndSnapshotIndex.getLeft(), scmAndSnapshotIndex.getRight(), requestMetadata));
       }
     });
 
@@ -211,10 +227,9 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
-      ExecutorService executor) {
+      ExecutorService executor, boolean getDeleted) {
     long restoreStartTime = System.nanoTime();
     List<CompletionStage<Void>> restoreFutures = new ArrayList<>();
-
     LOG.debug("Starting restore for task: {} stores: {}", taskName, storesToRestore);
     storesToRestore.forEach(storeName -> {
       if (!prevStoreSnapshotIndexes.containsKey(storeName)) {
@@ -254,7 +269,12 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         throw new SamzaException(String.format("Error deleting store directory: %s", storeDir), e);
       }
 
-      boolean shouldRestore = shouldRestore(taskName.getTaskName(), storeName, dirIndex,
+      // Restore from blob store if:
+      // 1. shouldRestore() returns true - there is a diff between local and remote snapshot.
+      // 2. getDeleted is set - Some blobs in the blob store were deleted incorrectly (SAMZA-2787). Download/restore
+      //                             everything locally ignoring the diff. This will be backed up afresh by
+      //                             ContainerStorageManager recovery path.
+      boolean shouldRestore = getDeleted || shouldRestore(taskName.getTaskName(), storeName, dirIndex,
           storeCheckpointDir, storageConfig, dirDiffUtil);
 
       if (shouldRestore) { // restore the store from the remote blob store
@@ -268,7 +288,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
         metrics.storePreRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
         enqueueRestore(jobName, jobId, taskName.toString(), storeName, storeDir, dirIndex, storeRestoreStartTime,
-            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor);
+            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor, getDeleted);
       } else {
         LOG.debug("Renaming store checkpoint directory: {} to store directory: {} since its contents are identical " +
             "to the remote snapshot.", storeCheckpointDir, storeDir);
@@ -329,11 +349,11 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @VisibleForTesting
   static void enqueueRestore(String jobName, String jobId, String taskName, String storeName, File storeDir, DirIndex dirIndex,
       long storeRestoreStartTime, List<CompletionStage<Void>> restoreFutures, BlobStoreUtil blobStoreUtil,
-      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor) {
+      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor, boolean getDeleted) {
 
     Metadata requestMetadata = new Metadata(storeDir.getAbsolutePath(), Optional.empty(), jobName, jobId, taskName, storeName);
     CompletableFuture<Void> restoreFuture =
-        blobStoreUtil.restoreDir(storeDir, dirIndex, requestMetadata).thenRunAsync(() -> {
+        blobStoreUtil.restoreDir(storeDir, dirIndex, requestMetadata, getDeleted).thenRunAsync(() -> {
           metrics.storeRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
 
           long postRestoreStartTime = System.nanoTime();
@@ -345,7 +365,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
                     storeDir.getAbsolutePath()));
           } else {
             metrics.storePostRestoreNs.get(storeName).set(System.nanoTime() - postRestoreStartTime);
-            LOG.info("Restore from remote snapshot completed for store: {}", storeDir);
+            LOG.info("Restore from remote snapshot completed for store: {} with getDeleted set to {}", storeDir, getDeleted);
           }
         }, executor);
 

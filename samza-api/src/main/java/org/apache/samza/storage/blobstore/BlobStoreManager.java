@@ -49,11 +49,12 @@ public interface BlobStoreManager {
    * @param id Blob ID of the blob to get
    * @param outputStream OutputStream to write the downloaded blob
    * @param metadata User supplied {@link Metadata} of the request
+   * @param getDeletedBlob Flag to indicate if get should try to get a blob marked for deletion but not yet compacted
    * @return A future that completes when all the chunks are downloaded and written successfully to the OutputStream
    * @throws org.apache.samza.storage.blobstore.exceptions.DeletedException returned future should complete
    *         exceptionally with DeletedException on failure with the blob already deleted error.
    */
-  CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata);
+  CompletionStage<Void> get(String id, OutputStream outputStream, Metadata metadata, boolean getDeletedBlob);
 
   /**
    * Non-blocking call to mark a blob for deletion in the remote blob store

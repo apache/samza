@@ -27,6 +27,8 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import org.apache.samza.SamzaException;
+import org.apache.samza.config.ApplicationConfig;
+import org.apache.samza.config.ApplicationConfig.ApplicationMode;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
 import org.slf4j.Logger;
@@ -69,7 +71,8 @@ class IntermediateStreamManager {
   /**
    * Sets partition counts of intermediate streams which have not been assigned partition counts.
    */
-  private void setIntermediateStreamPartitions(JobGraph jobGraph) {
+  @VisibleForTesting
+  void setIntermediateStreamPartitions(JobGraph jobGraph) {
     final String defaultPartitionsConfigProperty = JobConfig.JOB_INTERMEDIATE_STREAM_PARTITIONS;
     int partitions = config.getInt(defaultPartitionsConfigProperty, StreamEdge.PARTITIONS_UNKNOWN);
     if (partitions == StreamEdge.PARTITIONS_UNKNOWN) {
@@ -81,11 +84,14 @@ class IntermediateStreamManager {
       int maxOutPartitions = maxPartitions(jobGraph.getOutputStreams());
       partitions = Math.max(maxInPartitions, maxOutPartitions);
 
-      if (partitions > MAX_INFERRED_PARTITIONS) {
+      ApplicationMode applicationMode = getAppMode();
+      if (partitions > MAX_INFERRED_PARTITIONS && ApplicationMode.BATCH.equals(applicationMode)) {
         partitions = MAX_INFERRED_PARTITIONS;
         log.warn(String.format("Inferred intermediate stream partition count %d is greater than the max %d. Using the max.",
             partitions, MAX_INFERRED_PARTITIONS));
       }
+
+      log.info("Using {} as the default partition count for intermediate streams", partitions);
     } else {
       // Reject any zero or other negative values explicitly specified in config.
       if (partitions <= 0) {
@@ -103,6 +109,11 @@ class IntermediateStreamManager {
         edge.setPartitionCount(partitions);
       }
     }
+  }
+
+  @VisibleForTesting
+  ApplicationMode getAppMode() {
+    return new ApplicationConfig(config).getAppMode();
   }
 
   /**

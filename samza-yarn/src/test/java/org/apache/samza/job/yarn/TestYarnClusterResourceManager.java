@@ -19,6 +19,7 @@
 
 package org.apache.samza.job.yarn;
 
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashMap;
@@ -250,4 +251,44 @@ public class TestYarnClusterResourceManager {
 
     verify(asyncNMClient, times(1)).stopContainerAsync(runningContainerId, runningNodeId);
   }
+
+  @Test
+  public void testIncrementAllocatedContainersInBuffer() {
+    YarnClusterResourceManager yarnClusterResourceManager =
+        new YarnClusterResourceManager(asyncClient, asyncNMClient, callback, yarnAppState, lifecycle, service, metrics,
+            yarnConfiguration, config);
+    yarnClusterResourceManager.start();
+    Container allocatedContainer = mock(Container.class);
+    ContainerId allocatedContainerId = mock(ContainerId.class);
+    NodeId allocatedNodeId = mock(NodeId.class);
+    Resource resource = mock(Resource.class);
+
+    when(allocatedNodeId.getHost()).thenReturn("fake_host");
+    when(resource.getVirtualCores()).thenReturn(1);
+    when(resource.getMemory()).thenReturn(1024);
+    when(allocatedContainer.getId()).thenReturn(allocatedContainerId);
+    when(allocatedContainer.getNodeId()).thenReturn(allocatedNodeId);
+    when(allocatedContainer.getResource()).thenReturn(resource);
+    yarnClusterResourceManager.onContainersAllocated(ImmutableList.of(allocatedContainer));
+    verify(metrics).incrementAllocatedContainersInBuffer();
+  }
+  @Test
+  public void testDecrementAllocatedContainersInBuffer() {
+    YarnClusterResourceManager yarnClusterResourceManager =
+        new YarnClusterResourceManager(asyncClient, asyncNMClient, callback, yarnAppState, lifecycle, service, metrics,
+            yarnConfiguration, config);
+    yarnClusterResourceManager.start();
+    SamzaResource allocatedContainerResource = mock(SamzaResource.class);
+    Container runningContainer = mock(Container.class);
+    ContainerId runningContainerId = mock(ContainerId.class);
+    NodeId runningNodeId = mock(NodeId.class);
+
+    when(runningContainer.getId()).thenReturn(runningContainerId);
+    when(runningContainer.getNodeId()).thenReturn(runningNodeId);
+
+    yarnClusterResourceManager.getAllocatedResources().put(allocatedContainerResource, runningContainer);
+    yarnClusterResourceManager.releaseResources(allocatedContainerResource);
+    verify(metrics).decrementAllocatedContainersInBuffer();
+  }
+
 }

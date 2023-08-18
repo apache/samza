@@ -88,16 +88,13 @@ public class TestBlobStoreRestoreManager {
     when(mockSnapshotIndex.getDirIndex()).thenReturn(dirIndex);
 
     BlobStoreUtil blobStoreUtil = mock(BlobStoreUtil.class);
-    when(blobStoreUtil.cleanUpDir(any(DirIndex.class), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
-    when(blobStoreUtil.deleteDir(any(DirIndex.class), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
-    when(blobStoreUtil.deleteSnapshotIndexBlob(anyString(), any(Metadata.class))).thenReturn(CompletableFuture.completedFuture(null));
+    when(blobStoreUtil.cleanSnapshotIndex(anyString(), any(SnapshotIndex.class), any(Metadata.class)))
+        .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.deleteUnusedStoresFromBlobStore(
         jobName, jobId, taskName, storageConfig, blobStoreConfig, initialStoreSnapshotIndexes, blobStoreUtil, EXECUTOR);
 
-    verify(blobStoreUtil, times(1)).cleanUpDir(eq(dirIndex), any(Metadata.class));
-    verify(blobStoreUtil, times(1)).deleteDir(eq(dirIndex), any(Metadata.class));
-    verify(blobStoreUtil, times(1)).deleteSnapshotIndexBlob(eq(blobId), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).cleanSnapshotIndex(eq(blobId), any(SnapshotIndex.class), any(Metadata.class));
 
   }
 
@@ -201,16 +198,16 @@ public class TestBlobStoreRestoreManager {
     DirDiffUtil dirDiffUtil = mock(DirDiffUtil.class);
 
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(null));
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
-    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
     // verify that the store directory was deleted prior to restore
     // (should still not exist at the end since restore is no-op)
     assertFalse(storeDir.toFile().exists());
@@ -254,15 +251,15 @@ public class TestBlobStoreRestoreManager {
 
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was called and skipped (i.e. shouldRestore == true)
-    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
+    verify(blobStoreUtil, times(1)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
     // verify that the checkpoint directories were deleted prior to restore (should not exist at the end)
     assertFalse(storeCheckpointDir1.toFile().exists());
     assertFalse(storeCheckpointDir2.toFile().exists());
@@ -310,15 +307,15 @@ public class TestBlobStoreRestoreManager {
     // ensures shouldRestore is not called
     when(dirDiffUtil.areSameDir(anySet(), anyBoolean())).thenReturn((arg1, arg2) -> true);
     // return immediately without restoring.
-    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class)))
+    when(blobStoreUtil.restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(null));
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that the store directory restore was not called (should have restored from checkpoint dir)
-    verify(blobStoreUtil, times(0)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class));
+    verify(blobStoreUtil, times(0)).restoreDir(eq(storeDir.toFile()), eq(dirIndex), any(Metadata.class), anyBoolean());
     // verify that the checkpoint dir was renamed to store dir
     assertFalse(storeCheckpointDir.toFile().exists());
     assertTrue(storeDir.toFile().exists());
@@ -352,11 +349,11 @@ public class TestBlobStoreRestoreManager {
 
     BlobStoreRestoreManager.restoreStores(jobName, jobId, taskName, storesToRestore, prevStoreSnapshotIndexes,
         loggedBaseDir.toFile(), storageConfig, metrics,
-        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR);
+        storageManagerUtil, blobStoreUtil, dirDiffUtil, EXECUTOR, false);
 
     // verify that we checked the previously checkpointed SCMs.
     verify(prevStoreSnapshotIndexes, times(1)).containsKey(eq("newStoreName"));
     // verify that the store directory restore was never called
-    verify(blobStoreUtil, times(0)).restoreDir(any(File.class), any(DirIndex.class), any(Metadata.class));
+    verify(blobStoreUtil, times(0)).restoreDir(any(File.class), any(DirIndex.class), any(Metadata.class), anyBoolean());
   }
 }

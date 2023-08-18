@@ -610,7 +610,7 @@ public class TestBlobStoreUtil {
     when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
 
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
       (Answer<CompletionStage<Void>>) invocationOnMock -> {
         String blobId = invocationOnMock.getArgumentAt(0, String.class);
         OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
@@ -623,7 +623,7 @@ public class TestBlobStoreUtil {
       });
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
         new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
@@ -663,7 +663,7 @@ public class TestBlobStoreUtil {
     when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
 
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
       (Answer<CompletionStage<Void>>) invocationOnMock -> { // first try, retriable error
         String blobId = invocationOnMock.getArgumentAt(0, String.class);
         OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
@@ -681,7 +681,7 @@ public class TestBlobStoreUtil {
       });
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
         new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
@@ -721,7 +721,7 @@ public class TestBlobStoreUtil {
     when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
 
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenReturn(
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenReturn(
         FutureUtil.failedFuture(new IllegalArgumentException())) // non retriable error
         .thenAnswer((Answer<CompletionStage<Void>>) invocationOnMock -> {
           String blobId = invocationOnMock.getArgumentAt(0, String.class);
@@ -735,7 +735,7 @@ public class TestBlobStoreUtil {
 
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     try {
-      blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata).join();
+      blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
       fail("Should have failed on non-retriable errors during file restore");
     } catch (CompletionException e) {
       assertTrue(e.getCause() instanceof IllegalArgumentException);
@@ -750,7 +750,7 @@ public class TestBlobStoreUtil {
     String localSnapshotFiles = "[a, b, z/1, y/1, p/m/1, q/n/1]";
     Path localSnapshot = BlobStoreTestUtil.createLocalDir(localSnapshotFiles);
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
       (Answer<CompletionStage<Void>>) invocationOnMock -> {
         String blobId = invocationOnMock.getArgumentAt(0, String.class);
         OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
@@ -775,7 +775,7 @@ public class TestBlobStoreUtil {
     DirIndex dirIndex = BlobStoreTestUtil.createDirIndex(prevSnapshotFiles);
 
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
-    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class))).thenAnswer(
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
       (Answer<CompletionStage<Void>>) invocationOnMock -> {
         String blobId = invocationOnMock.getArgumentAt(0, String.class);
         OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
@@ -786,7 +786,7 @@ public class TestBlobStoreUtil {
 
     Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
-    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata).join();
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata, false).join();
 
     assertTrue(new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), dirIndex));
   }
@@ -800,7 +800,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", null, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            null, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -810,7 +811,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> prevSnapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertEquals(prevSnapshotIndexes.size(), 0);
   }
 
@@ -824,7 +826,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -838,7 +841,8 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(mock(BlobStoreManager.class), MoreExecutors.newDirectExecutorService(), blobStoreConfig, null, null);
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", mockCheckpoint, new HashSet<>());
+        blobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            mockCheckpoint, new HashSet<>(), false);
     assertTrue(snapshotIndexes.isEmpty());
   }
 
@@ -849,36 +853,11 @@ public class TestBlobStoreUtil {
     Set<String> storesToBackupOrRestore = new HashSet<>();
     storesToBackupOrRestore.add("storeName");
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
-    when(mockBlobStoreUtil.getSnapshotIndex(anyString(), any(Metadata.class))).thenThrow(new RuntimeException());
+    when(mockBlobStoreUtil.getSnapshotIndex(anyString(), any(Metadata.class), anyBoolean())).thenThrow(new RuntimeException());
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-    mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
-  }
-
-  @Test
-  public void testGetSSISkipsStoresWithSnapshotIndexAlreadyDeleted() {
-    String store = "storeName1";
-    String otherStore = "storeName2";
-    Checkpoint checkpoint = createCheckpointV2(BlobStoreStateBackendFactory.class.getName(),
-        ImmutableMap.of(store, "snapshotIndexBlobId1", otherStore, "snapshotIndexBlobId2"));
-    Set<String> storesToBackupOrRestore = new HashSet<>();
-    storesToBackupOrRestore.add(store);
-    storesToBackupOrRestore.add(otherStore);
-    SnapshotIndex store1SnapshotIndex = mock(SnapshotIndex.class);
-    BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
-
-    CompletableFuture<SnapshotIndex> failedFuture = FutureUtil.failedFuture(new DeletedException());
-    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId1"), any(Metadata.class))).thenReturn(
-        CompletableFuture.completedFuture(store1SnapshotIndex));
-    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId2"), any(Metadata.class))).thenReturn(failedFuture);
-    when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
-
-    Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
-    assertEquals(1, snapshotIndexes.size());
-    assertEquals("snapshotIndexBlobId1", snapshotIndexes.get("storeName1").getLeft());
-    assertEquals(store1SnapshotIndex, snapshotIndexes.get("storeName1").getRight());
+        any(Checkpoint.class), anySetOf(String.class), any(Boolean.class))).thenCallRealMethod();
+    mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+        checkpoint, storesToBackupOrRestore, false);
   }
 
   @Test
@@ -893,15 +872,16 @@ public class TestBlobStoreUtil {
     SnapshotIndex store1SnapshotIndex = mock(SnapshotIndex.class);
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
+        any(Checkpoint.class), anySetOf(String.class), anyBoolean())).thenCallRealMethod();
     RuntimeException nonIgnoredException = new RuntimeException();
     CompletableFuture<SnapshotIndex> failedFuture = FutureUtil.failedFuture(nonIgnoredException);
-    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId1"), any(Metadata.class))).thenReturn(
+    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId1"), any(Metadata.class), anyBoolean())).thenReturn(
         FutureUtil.failedFuture(new DeletedException())); // should fail even if some errors are ignored
-    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId2"), any(Metadata.class))).thenReturn(failedFuture);
+    when(mockBlobStoreUtil.getSnapshotIndex(eq("snapshotIndexBlobId2"), any(Metadata.class), anyBoolean())).thenReturn(failedFuture);
 
     try {
-      mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+      mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+          checkpoint, storesToBackupOrRestore, false);
       fail("Should have thrown an exception");
     } catch (Exception e) {
       Throwable cause =
@@ -925,21 +905,22 @@ public class TestBlobStoreUtil {
 
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
 
-    when(mockBlobStoreUtil.getSnapshotIndex(eq(storeSnapshotIndexBlobId), any(Metadata.class))).thenReturn(
+    when(mockBlobStoreUtil.getSnapshotIndex(eq(storeSnapshotIndexBlobId), any(Metadata.class), any(Boolean.class))).thenReturn(
         CompletableFuture.completedFuture(mockStoreSnapshotIndex));
-    when(mockBlobStoreUtil.getSnapshotIndex(eq(otherStoreSnapshotIndexBlobId), any(Metadata.class))).thenReturn(
+    when(mockBlobStoreUtil.getSnapshotIndex(eq(otherStoreSnapshotIndexBlobId), any(Metadata.class), any(Boolean.class))).thenReturn(
         CompletableFuture.completedFuture(mockOtherStooreSnapshotIndex));
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
+        any(Checkpoint.class), anySetOf(String.class), any(Boolean.class))).thenCallRealMethod();
 
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            checkpoint, storesToBackupOrRestore, false);
 
     assertEquals(storeSnapshotIndexBlobId, snapshotIndexes.get(storeName).getKey());
     assertEquals(mockStoreSnapshotIndex, snapshotIndexes.get(storeName).getValue());
     assertEquals(otherStoreSnapshotIndexBlobId, snapshotIndexes.get(otherStoreName).getKey());
     assertEquals(mockOtherStooreSnapshotIndex, snapshotIndexes.get(otherStoreName).getValue());
-    verify(mockBlobStoreUtil, times(2)).getSnapshotIndex(anyString(), any(Metadata.class));
+    verify(mockBlobStoreUtil, times(2)).getSnapshotIndex(anyString(), any(Metadata.class), any(Boolean.class));
   }
 
   @Test
@@ -952,15 +933,17 @@ public class TestBlobStoreUtil {
     CheckpointV2 checkpoint = createCheckpointV2(BlobStoreStateBackendFactory.class.getName(),
         ImmutableMap.of(store, "1", anotherStore, "2", oneMoreStore, "3"));
     BlobStoreUtil mockBlobStoreUtil = mock(BlobStoreUtil.class);
-    when(mockBlobStoreUtil.getSnapshotIndex(any(String.class), any(Metadata.class)))
+    when(mockBlobStoreUtil.getSnapshotIndex(any(String.class), any(Metadata.class), anyBoolean()))
         .thenReturn(CompletableFuture.completedFuture(mockStoreSnapshotIndex));
     when(mockBlobStoreUtil.getStoreSnapshotIndexes(anyString(), anyString(), anyString(),
-        any(Checkpoint.class), anySetOf(String.class))).thenCallRealMethod();
+        any(Checkpoint.class), anySetOf(String.class), anyBoolean())).thenCallRealMethod();
 
     Map<String, Pair<String, SnapshotIndex>> snapshotIndexes =
-        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName", checkpoint, storesToBackupOrRestore);
+        mockBlobStoreUtil.getStoreSnapshotIndexes("testJobName", "testJobId", "taskName",
+            checkpoint, storesToBackupOrRestore, false);
 
-    verify(mockBlobStoreUtil, times(storesToBackupOrRestore.size())).getSnapshotIndex(anyString(), any(Metadata.class));
+    verify(mockBlobStoreUtil, times(storesToBackupOrRestore.size()))
+        .getSnapshotIndex(anyString(), any(Metadata.class), anyBoolean());
   }
 
   /**

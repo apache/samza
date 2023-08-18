@@ -24,10 +24,10 @@ import java.util.{Collections, Objects, Optional}
 import java.util.concurrent.{CompletableFuture, ExecutorService, ScheduledExecutorService, Semaphore, TimeUnit}
 import org.apache.samza.SamzaException
 import org.apache.samza.checkpoint.kafka.{KafkaChangelogSSPOffset, KafkaStateCheckpointMarker}
-import org.apache.samza.checkpoint.{CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
+import org.apache.samza.checkpoint.{Checkpoint, CheckpointId, CheckpointV1, CheckpointV2, OffsetManager}
 import org.apache.samza.config.{Config, JobConfig, StreamConfig, TaskConfig}
 import org.apache.samza.context._
-import org.apache.samza.job.model.{JobModel, TaskModel}
+import org.apache.samza.job.model.{JobModel, TaskMode, TaskModel}
 import org.apache.samza.scheduler.{CallbackSchedulerImpl, EpochTimeScheduler, ScheduledCallback}
 import org.apache.samza.storage.kv.KeyValueStore
 import org.apache.samza.storage.{ContainerStorageManager, TaskStorageCommitManager}
@@ -149,31 +149,41 @@ class TaskInstance(
     }
   }
 
-  def initTask {
+  def initTask(lastTaskCheckpoint: Option[Checkpoint]) {
     initCaughtUpMapping()
 
-    if (commitManager != null) {
-      debug("Starting commit manager for taskName: %s" format taskName)
+    val isStandByTask = taskModel.getTaskMode == TaskMode.Standby
+    var checkpoint: Checkpoint = lastTaskCheckpoint.orNull
+    debug("initTask with optional checkpoint %s" format(checkpoint))
 
-      commitManager.init()
+    if (commitManager != null) {
+      debug("Starting commit manager for taskName %s" format taskName)
+      if (isStandByTask) {
+        debug("Passing null to init for standby taskName %s" format taskName)
+        // pass null in case of standby task. This is to ensure, checkpoint is always read from checkpoint topic
+        commitManager.init(null)
+      } else {
+        debug("init taskName %s with Checkpoint %s" format(taskName, checkpoint))
+        commitManager.init(checkpoint)
+      }
     } else {
       debug("Skipping commit manager initialization for taskName: %s" format taskName)
     }
 
-    if (offsetManager != null) {
-      val checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
-      // Only required for checkpointV2
-      if (checkpoint != null && checkpoint.getVersion == 2) {
-        val checkpointV2 = checkpoint.asInstanceOf[CheckpointV2]
-        // call cleanUp on backup managers in case the container previously failed during commit
-        // before completing this step
+    if (offsetManager != null && isStandByTask) {
+      checkpoint = offsetManager.getLastTaskCheckpoint(taskName)
+    }
+    // Only required for checkpointV2
+    if (checkpoint != null && checkpoint.getVersion == 2) {
+      val checkpointV2 = checkpoint.asInstanceOf[CheckpointV2]
+      // call cleanUp on backup managers in case the container previously failed during commit
+      // before completing this step
 
-        // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
-        // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
-        // be deleted in the background by the blob store, leading to data loss.
-        info("Cleaning up stale state from previous run for taskName: %s" format taskName)
-        commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
-      }
+      // WARNING: cleanUp is NOT optional with blob stores since this is where we reset the TTL for
+      // tracked blobs. if this TTL reset is skipped, some of the blobs retained by future commits may
+      // be deleted in the background by the blob store, leading to data loss.
+      info("Cleaning up stale state from previous run for taskName: %s" format taskName)
+      commitManager.cleanUp(checkpointV2.getCheckpointId, checkpointV2.getStateCheckpointMarkers)
     }
 
     if (taskConfig.getTransactionalStateRestoreEnabled() && taskConfig.getCommitMs > 0) {
