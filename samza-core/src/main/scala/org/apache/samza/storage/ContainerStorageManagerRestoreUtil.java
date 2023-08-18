@@ -412,20 +412,4 @@ public class ContainerStorageManagerRestoreUtil {
         FutureUtil.unwrapExceptions(SamzaException.class, ex));
     return unwrappedException instanceof DeletedException;
   }
-
-  /**
-   * Stop persistent stores.
-   * NOTE: Call this method concurrently for all {@link TaskRestoreManager}s so that stop() can be parallelized.
-   * Certain persistent stores opened in BulkLoad mode are compacted on stop, so paralleling stop()
-   * also parallelizes their compaction (a time-intensive operation).
-   */
-  private static void closeTaskRestoreManager(TaskRestoreManager taskRestoreManager, String taskName) {
-    try {
-      taskRestoreManager.close();
-    } catch (Exception exception) {
-      LOG.error("Error closing restore manager for task: {} after {} restore", taskName, exception);
-      // ignore exception from close. container may still be able to continue processing/backups
-      // if restore manager close fails.
-    }
-  }
 }
