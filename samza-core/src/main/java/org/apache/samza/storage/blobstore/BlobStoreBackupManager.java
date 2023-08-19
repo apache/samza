@@ -36,6 +36,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiPredicate;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.samza.SamzaException;
 import org.apache.samza.checkpoint.Checkpoint;
@@ -51,6 +53,7 @@ import org.apache.samza.storage.StorageManagerUtil;
 import org.apache.samza.storage.TaskBackupManager;
 import org.apache.samza.storage.blobstore.diff.DirDiff;
 import org.apache.samza.storage.blobstore.index.DirIndex;
+import org.apache.samza.storage.blobstore.index.FileIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotIndex;
 import org.apache.samza.storage.blobstore.index.SnapshotMetadata;
 import org.apache.samza.storage.blobstore.metrics.BlobStoreBackupManagerMetrics;
@@ -174,7 +177,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
         storeToSCMAndSnapshotIndexPairFutures = new HashMap<>();
     // This map is used to return serialized State Checkpoint Markers to the caller
     Map<String, CompletableFuture<String>> storeToSerializedSCMFuture = new HashMap<>();
-
+    BiPredicate<File, FileIndex> areSameFile = DirDiffUtil.areSameFile(false);
     storesToBackup.forEach((storeName) -> {
       long storeUploadStartTime = System.nanoTime();
       try {
@@ -207,7 +210,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
         long dirDiffStartTime = System.nanoTime();
         // get the diff between previous and current store directories
-        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, DirDiffUtil.areSameFile(false));
+        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, areSameFile);
         metrics.storeDirDiffNs.get(storeName).update(System.nanoTime() - dirDiffStartTime);
 
         DirDiff.Stats stats = DirDiff.getStats(dirDiff);
