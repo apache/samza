@@ -782,16 +782,16 @@ public class TestBlobStoreUtil {
 
     BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
     when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
-        (Answer<CompletionStage<Void>>) invocationOnMock -> {
-          String blobId = invocationOnMock.getArgumentAt(0, String.class);
-          OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
-          // blob contents = blob id
-          outputStream.write(blobId.getBytes());
+      (Answer<CompletionStage<Void>>) invocationOnMock -> {
+        String blobId = invocationOnMock.getArgumentAt(0, String.class);
+        OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
+        // blob contents = blob id
+        outputStream.write(blobId.getBytes());
 
-          // force flush so that the checksum calculation later uses the full file contents.
-          ((FileOutputStream) outputStream).getFD().sync();
-          return CompletableFuture.completedFuture(null);
-        });
+        // force flush so that the checksum calculation later uses the full file contents.
+        ((FileOutputStream) outputStream).getFD().sync();
+        return CompletableFuture.completedFuture(null);
+      });
 
     BlobStoreConfig config = mock(BlobStoreConfig.class);
     when(config.shouldCompareFileOwnersOnRestore()).thenReturn(false);
