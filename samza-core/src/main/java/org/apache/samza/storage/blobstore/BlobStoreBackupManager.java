@@ -207,7 +207,7 @@ public class BlobStoreBackupManager implements TaskBackupManager {
 
         long dirDiffStartTime = System.nanoTime();
         // get the diff between previous and current store directories
-        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, DirDiffUtil.areSameFile(false));
+        DirDiff dirDiff = DirDiffUtil.getDirDiff(checkpointDir, prevDirIndex, DirDiffUtil.areSameFile(false, true));
         metrics.storeDirDiffNs.get(storeName).update(System.nanoTime() - dirDiffStartTime);
 
         DirDiff.Stats stats = DirDiff.getStats(dirDiff);

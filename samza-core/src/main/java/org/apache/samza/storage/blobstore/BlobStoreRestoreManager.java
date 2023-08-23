@@ -164,7 +164,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @Override
   public CompletableFuture<Void> restore() {
     return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes, loggedBaseDir,
-        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, false);
+        storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, false,
+        blobStoreConfig.shouldCompareFileOwnersOnRestore());
   }
 
   /**
@@ -174,7 +175,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
    */
   public CompletableFuture<Void> restore(boolean restoreDeleted) {
     return restoreStores(jobName, jobId, taskModel.getTaskName(), storesToRestore, prevStoreSnapshotIndexes,
-        loggedBaseDir, storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, restoreDeleted);
+        loggedBaseDir, storageConfig, metrics, storageManagerUtil, blobStoreUtil, dirDiffUtil, executor, restoreDeleted,
+        blobStoreConfig.shouldCompareFileOwnersOnRestore());
   }
 
   @Override
@@ -227,7 +229,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
       Map<String, Pair<String, SnapshotIndex>> prevStoreSnapshotIndexes,
       File loggedBaseDir, StorageConfig storageConfig, BlobStoreRestoreManagerMetrics metrics,
       StorageManagerUtil storageManagerUtil, BlobStoreUtil blobStoreUtil, DirDiffUtil dirDiffUtil,
-      ExecutorService executor, boolean getDeleted) {
+      ExecutorService executor, boolean getDeleted, boolean compareFileOwners) {
     long restoreStartTime = System.nanoTime();
     List<CompletionStage<Void>> restoreFutures = new ArrayList<>();
     LOG.debug("Starting restore for task: {} stores: {}", taskName, storesToRestore);
@@ -288,7 +290,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
 
         metrics.storePreRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
         enqueueRestore(jobName, jobId, taskName.toString(), storeName, storeDir, dirIndex, storeRestoreStartTime,
-            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor, getDeleted);
+            restoreFutures, blobStoreUtil, dirDiffUtil, metrics, executor, getDeleted, compareFileOwners);
       } else {
         LOG.debug("Renaming store checkpoint directory: {} to store directory: {} since its contents are identical " +
             "to the remote snapshot.", storeCheckpointDir, storeDir);
@@ -320,7 +322,7 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
         LOG.debug("Restoring task: {} store: {} from remote snapshot since the store is configured to be " +
             "restored on each restart.", taskName, storeName);
         restoreStore = true;
-      } else if (dirDiffUtil.areSameDir(FILES_TO_IGNORE, false).test(storeCheckpointDir.toFile(), dirIndex)) {
+      } else if (dirDiffUtil.areSameDir(FILES_TO_IGNORE, false, true).test(storeCheckpointDir.toFile(), dirIndex)) {
         restoreStore = false; // no restore required for this store.
       } else {
         // we don't optimize for the case when the local host doesn't contain the most recent store checkpoint
@@ -349,7 +351,8 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
   @VisibleForTesting
   static void enqueueRestore(String jobName, String jobId, String taskName, String storeName, File storeDir, DirIndex dirIndex,
       long storeRestoreStartTime, List<CompletionStage<Void>> restoreFutures, BlobStoreUtil blobStoreUtil,
-      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor, boolean getDeleted) {
+      DirDiffUtil dirDiffUtil, BlobStoreRestoreManagerMetrics metrics, ExecutorService executor, boolean getDeleted,
+      boolean compareFileOwners) {
 
     Metadata requestMetadata = new Metadata(storeDir.getAbsolutePath(), Optional.empty(), jobName, jobId, taskName, storeName);
     CompletableFuture<Void> restoreFuture =
@@ -357,8 +360,10 @@ public class BlobStoreRestoreManager implements TaskRestoreManager {
           metrics.storeRestoreNs.get(storeName).set(System.nanoTime() - storeRestoreStartTime);
 
           long postRestoreStartTime = System.nanoTime();
-          LOG.trace("Comparing restored store directory: {} and remote directory to verify restore.", storeDir);
-          if (!dirDiffUtil.areSameDir(FILES_TO_IGNORE, true).test(storeDir, dirIndex)) {
+          LOG.trace(
+              "Comparing restored store directory: {} and remote directory to verify restore with compareFileOwners set to: {}",
+              storeDir, compareFileOwners);
+          if (!dirDiffUtil.areSameDir(FILES_TO_IGNORE, true, compareFileOwners).test(storeDir, dirIndex)) {
             metrics.storePostRestoreNs.get(storeName).set(System.nanoTime() - postRestoreStartTime);
             throw new SamzaException(
                 String.format("Restored store directory: %s contents " + "are not the same as the remote snapshot.",

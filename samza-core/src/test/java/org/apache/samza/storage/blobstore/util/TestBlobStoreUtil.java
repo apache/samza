@@ -540,12 +540,12 @@ public class TestBlobStoreUtil {
     // checksum should be ignored for sst file. Set any dummy value
     FileIndex sstFileIndex = new FileIndex(sstFile.getFileName().toString(), Collections.emptyList(), sstFileMetadata, 0L);
 
-    assertTrue(DirDiffUtil.areSameFile(false).test(sstFile.toFile(), sstFileIndex));
+    assertTrue(DirDiffUtil.areSameFile(false, true).test(sstFile.toFile(), sstFileIndex));
 
     // 2. test with sst file with different timestamps
     // Update last modified time
     Files.setLastModifiedTime(sstFile, FileTime.fromMillis(System.currentTimeMillis() + 1000L));
-    assertTrue(DirDiffUtil.areSameFile(false).test(sstFile.toFile(), sstFileIndex));
+    assertTrue(DirDiffUtil.areSameFile(false, true).test(sstFile.toFile(), sstFileIndex));
 
     // 3. test with non-sst files with same metadata and content
     Path tmpFile = Files.createTempFile("samza-testAreSameFiles-", ".tmp");
@@ -559,18 +559,18 @@ public class TestBlobStoreUtil {
     FileIndex tmpFileIndex = new FileIndex(tmpFile.getFileName().toString(), Collections.emptyList(), tmpFileMetadata,
         FileUtils.checksumCRC32(tmpFile.toFile()));
 
-    assertTrue(DirDiffUtil.areSameFile(false).test(tmpFile.toFile(), tmpFileIndex));
+    assertTrue(DirDiffUtil.areSameFile(false, true).test(tmpFile.toFile(), tmpFileIndex));
 
     // 4. test with non-sst files with different attributes
     // change lastModifiedTime of local file
     FileTime prevLastModified = tmpFileAttribs.lastModifiedTime();
     Files.setLastModifiedTime(tmpFile, FileTime.fromMillis(System.currentTimeMillis() + 1000L));
-    assertTrue(DirDiffUtil.areSameFile(false).test(tmpFile.toFile(), tmpFileIndex));
+    assertTrue(DirDiffUtil.areSameFile(false, true).test(tmpFile.toFile(), tmpFileIndex));
 
     // change content/checksum of local file
     Files.setLastModifiedTime(tmpFile, prevLastModified); // reset attributes to match with remote file
     fileUtil.writeToTextFile(tmpFile.toFile(), RandomStringUtils.random(1000), false); //new content
-    assertFalse(DirDiffUtil.areSameFile(false).test(tmpFile.toFile(), tmpFileIndex));
+    assertFalse(DirDiffUtil.areSameFile(false, true).test(tmpFile.toFile(), tmpFileIndex));
   }
 
   @Test
@@ -626,7 +626,7 @@ public class TestBlobStoreUtil {
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
-        new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
+        new DirDiffUtil().areSameDir(Collections.emptySet(), false, true).test(restoreDirBasePath.toFile(), mockDirIndex));
   }
 
   @Test
@@ -684,7 +684,7 @@ public class TestBlobStoreUtil {
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
 
     assertTrue(
-        new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), mockDirIndex));
+        new DirDiffUtil().areSameDir(Collections.emptySet(), false, true).test(restoreDirBasePath.toFile(), mockDirIndex));
   }
 
   @Test
@@ -742,6 +742,66 @@ public class TestBlobStoreUtil {
     }
   }
 
+
+  @Test
+  public void testRestoreIgnoresDifferentFileOwnersOnConfig() throws IOException {
+    Path restoreDirBasePath = Files.createTempDirectory(BlobStoreTestUtil.TEMP_DIR_PREFIX);
+
+    // remote file == 26 blobs, blob ids from a to z, blob contents from a to z, offsets 0 to 25.
+    DirIndex mockDirIndex = mock(DirIndex.class);
+    when(mockDirIndex.getDirName()).thenReturn(DirIndex.ROOT_DIR_NAME);
+    FileIndex mockFileIndex = mock(FileIndex.class);
+    when(mockFileIndex.getFileName()).thenReturn("1.sst");
+
+    // setup mock file attributes. create a temp file to get current user/group/permissions so that they
+    // match with restored files.
+    File tmpFile = Paths.get(restoreDirBasePath.toString(), "tempfile-" + new Random().nextInt()).toFile();
+    tmpFile.createNewFile();
+    PosixFileAttributes attrs = Files.readAttributes(tmpFile.toPath(), PosixFileAttributes.class);
+    // create remote file with different owner than local file
+    FileMetadata fileMetadata = new FileMetadata(1234L, 1243L, 26, // ctime mtime does not matter. size == 26
+        attrs.owner().getName() + "_different", attrs.group().getName(), PosixFilePermissions.toString(attrs.permissions()));
+    when(mockFileIndex.getFileMetadata()).thenReturn(fileMetadata);
+    Files.delete(tmpFile.toPath()); // delete so that it doesn't show up in restored dir contents.
+
+    List<FileBlob> mockFileBlobs = new ArrayList<>();
+    StringBuilder fileContents = new StringBuilder();
+    for (int i = 0; i < 26; i++) {
+      FileBlob mockFileBlob = mock(FileBlob.class);
+      char c = (char) ('a' + i);
+      fileContents.append(c); // blob contents == blobId
+      when(mockFileBlob.getBlobId()).thenReturn(String.valueOf(c));
+      when(mockFileBlob.getOffset()).thenReturn(i);
+      mockFileBlobs.add(mockFileBlob);
+    }
+    when(mockFileIndex.getBlobs()).thenReturn(mockFileBlobs);
+    CRC32 checksum = new CRC32();
+    checksum.update(fileContents.toString().getBytes());
+    when(mockFileIndex.getChecksum()).thenReturn(checksum.getValue());
+    when(mockDirIndex.getFilesPresent()).thenReturn(ImmutableList.of(mockFileIndex));
+
+    BlobStoreManager mockBlobStoreManager = mock(BlobStoreManager.class);
+    when(mockBlobStoreManager.get(anyString(), any(OutputStream.class), any(Metadata.class), any(Boolean.class))).thenAnswer(
+      (Answer<CompletionStage<Void>>) invocationOnMock -> {
+        String blobId = invocationOnMock.getArgumentAt(0, String.class);
+        OutputStream outputStream = invocationOnMock.getArgumentAt(1, OutputStream.class);
+        // blob contents = blob id
+        outputStream.write(blobId.getBytes());
+
+        // force flush so that the checksum calculation later uses the full file contents.
+        ((FileOutputStream) outputStream).getFD().sync();
+        return CompletableFuture.completedFuture(null);
+      });
+
+    BlobStoreConfig config = mock(BlobStoreConfig.class);
+    when(config.shouldCompareFileOwnersOnRestore()).thenReturn(false);
+    BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
+    blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), mockDirIndex, metadata, false).join();
+
+    assertTrue(
+        new DirDiffUtil().areSameDir(Collections.emptySet(), false, config.shouldCompareFileOwnersOnRestore()).test(restoreDirBasePath.toFile(), mockDirIndex));
+  }
+
   @Test
   @Ignore // TODO remove
   public void testRestoreDirRecreatesEmptyFilesAndDirs() throws IOException {
@@ -758,7 +818,7 @@ public class TestBlobStoreUtil {
         outputStream.write(blobId.getBytes());
         return CompletableFuture.completedFuture(null);
       });
-    boolean result = new DirDiffUtil().areSameDir(new TreeSet<>(), false).test(localSnapshot.toFile(), dirIndex);
+    boolean result = new DirDiffUtil().areSameDir(new TreeSet<>(), false, true).test(localSnapshot.toFile(), dirIndex);
     assertFalse(result);
     //ToDo complete
   }
@@ -788,7 +848,7 @@ public class TestBlobStoreUtil {
     BlobStoreUtil blobStoreUtil = new BlobStoreUtil(mockBlobStoreManager, EXECUTOR, blobStoreConfig, null, null);
     blobStoreUtil.restoreDir(restoreDirBasePath.toFile(), dirIndex, metadata, false).join();
 
-    assertTrue(new DirDiffUtil().areSameDir(Collections.emptySet(), false).test(restoreDirBasePath.toFile(), dirIndex));
+    assertTrue(new DirDiffUtil().areSameDir(Collections.emptySet(), false, true).test(restoreDirBasePath.toFile(), dirIndex));
   }
 
   /**
@@ -950,7 +1010,7 @@ public class TestBlobStoreUtil {
    * This test verifies that a retriable exception is retried more than 3 times (default retry is limited to 3 attempts)
    */
   @Test
-  public void testPutFileRetriedMorethanThreeTimes() throws Exception {
+  public void testPutFileRetriedMoreThanThreeTimes() throws Exception {
     SnapshotMetadata snapshotMetadata = new SnapshotMetadata(checkpointId, jobName, jobId, taskName, storeName);
     Path path = Files.createTempFile("samza-testPutFileChecksum-", ".tmp");
     FileUtil fileUtil = new FileUtil();
