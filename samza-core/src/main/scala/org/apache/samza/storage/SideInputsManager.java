@@ -497,6 +497,14 @@ public class SideInputsManager {
     return true;
   }
 
+  /**
+   * Decorated {@link RunLoopConfig} used for side inputs flow in samza. The properties of {@link RunLoop} for side
+   * input use case is as follows
+   *   1. Max concurrency within a side input task is always <i>1</i>. This is critical as ordering of OPs (CRUD) for
+   *      side input stores needs to be followed to recreate the correct snapshot of the external data
+   *   2. Side input tasks don't have any windows. We only allow users to plugin process functions
+   *   3. Commits are synchronous as we need to ensure data integrity upon state flushes
+   */
   private static class SideInputRunLoopConfig extends RunLoopConfig {
 
     public SideInputRunLoopConfig(Config config) {
