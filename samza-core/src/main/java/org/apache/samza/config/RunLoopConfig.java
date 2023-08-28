@@ -19,7 +19,6 @@
 package org.apache.samza.config;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.application.ApplicationUtil;
 
 
 /**
