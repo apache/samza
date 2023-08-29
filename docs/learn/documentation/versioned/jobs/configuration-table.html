@@ -864,6 +864,18 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="task-callback-watermark-timeout-ms">task.callback.watermark.timeout.ms</td>
+                    <td class="default">task.callback.watermark.timeout.ms</td>
+                    <td class="description">
+                        It defines the upper bound on the time taken by the task to process a watermark message.
+                        When the timeout happens, it will throw a TaskCallbackTimeoutException and shut down the container.
+                        Default is <i>task.callback.timeout.ms</i>. <b>Note:</b> In event of draining state, it is recommended
+                        to keep the <i>task.callback.drain.timeout.ms</i> to be same as <i>task.callback.watermark.timeout.ms</i>
+                        in order to not terminate drain prematurely due to higher latency for watermark processing.
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="task-consumer-batch-size">task.consumer.batch.size</td>
                     <td class="default">1</td>
                     <td class="description">
