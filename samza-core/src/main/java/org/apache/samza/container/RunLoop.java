@@ -644,7 +644,9 @@ public class RunLoop implements Runnable, Throttleable {
           /*
            * Timeout used in the task callback. The value is determined based on the following logic
            * 1. If run loop is in draining mode and the envelope is drain, use drainCallbackTimeoutMs
-           * 2. If the envelope is watermark, use watermarkCallbackTimeoutMs regardless of the modes
+           * 2. If the envelope is watermark, use watermarkCallbackTimeoutMs regardless of the modes. Setting a lower
+           *    watermark callback timeout during draining mode can cause drain to be unsuccessful prematurely and
+           *    vice-versa.
            * 3. Use callbackTimeoutMs otherwise
            */
           long timeout = messageCallbackTimeoutMs;
