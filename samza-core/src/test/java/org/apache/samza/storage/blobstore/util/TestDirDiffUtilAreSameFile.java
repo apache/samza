@@ -1,4 +1,4 @@
-/* 
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -60,7 +60,7 @@ public class TestDirDiffUtilAreSameFile {
 
   @Before
   public void testSetup() throws Exception {
-    areSameFile = DirDiffUtil.areSameFile(false);
+    areSameFile = DirDiffUtil.areSameFile(false, true);
     createFile(SMALL_FILE);
   }
 
@@ -127,6 +127,18 @@ public class TestDirDiffUtilAreSameFile {
         PosixFilePermissions.toString(localFileAttrs.permissions()));
     remoteFile = new FileIndex(localFile.getName(), new ArrayList<>(), remoteFileMetadata, localChecksum);
     Assert.assertFalse(areSameFile.test(localFile, remoteFile));
+  }
+
+  @Test
+  public void testAreSameFile_IgnoreDifferentOwner() {
+    areSameFile = DirDiffUtil.areSameFile(false, false);
+    remoteFileMetadata = new FileMetadata(0, 0,
+        localContentLength,
+        localFileAttrs.owner().getName() + "_different",
+        localFileAttrs.group().getName(),
+        PosixFilePermissions.toString(localFileAttrs.permissions()));
+    remoteFile = new FileIndex(localFile.getName(), new ArrayList<>(), remoteFileMetadata, localChecksum);
+    Assert.assertTrue(areSameFile.test(localFile, remoteFile));
   }
 
   @Test
@@ -197,7 +209,7 @@ public class TestDirDiffUtilAreSameFile {
     createFile(LARGE_FILE);
 
     for (int i = 0; i < 5; i++) {
-      BiPredicate<File, FileIndex> areSameFile = DirDiffUtil.areSameFile(false);
+      BiPredicate<File, FileIndex> areSameFile = DirDiffUtil.areSameFile(false, true);
       for (int j = 0; j < 20; j++) {
         localFile = mock(File.class);
         when(localFile.getName()).thenReturn("name");

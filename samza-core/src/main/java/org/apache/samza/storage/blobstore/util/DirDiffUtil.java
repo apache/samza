@@ -64,22 +64,23 @@ public class DirDiffUtil {
   /**
    * Checks if a local directory and a remote directory are identical. Local and remote directories are identical iff:
    * 1. The local directory has exactly the same set of files as the remote directory, and the files are themselves
-   * identical, as determined by {@link #areSameFile(boolean)}, except for those allowed to differ according to
+   * identical, as determined by {@link #areSameFile(boolean, boolean)}, except for those allowed to differ according to
    * {@code filesToIgnore}.
    * 2. The local directory has exactly the same set of sub-directories as the remote directory.
    *
    * @param filesToIgnore a set of file names to ignore during the directory comparisons
    *                      (does not exclude directory names)
    * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
+   * @param compareFileOwners whether to compare file owners
    * @return boolean indicating whether the local and remote directory are identical.
    */
   // TODO HIGH shesharm add unit tests
-  public BiPredicate<File, DirIndex> areSameDir(Set<String> filesToIgnore, boolean compareLargeFileChecksums) {
+  public BiPredicate<File, DirIndex> areSameDir(Set<String> filesToIgnore, boolean compareLargeFileChecksums, boolean compareFileOwners) {
     return (localDir, remoteDir) -> {
       String remoteDirName = remoteDir.getDirName().equals(DirIndex.ROOT_DIR_NAME) ? "root" : remoteDir.getDirName();
       LOG.debug("Creating diff between local dir: {} and remote dir: {} for comparison.",
           localDir.getAbsolutePath(), remoteDirName);
-      DirDiff dirDiff = DirDiffUtil.getDirDiff(localDir, remoteDir, DirDiffUtil.areSameFile(compareLargeFileChecksums));
+      DirDiff dirDiff = DirDiffUtil.getDirDiff(localDir, remoteDir, DirDiffUtil.areSameFile(compareLargeFileChecksums, compareFileOwners));
 
       boolean areSameDir = true;
       List<String> filesRemoved = dirDiff.getFilesRemoved().stream()
@@ -129,7 +130,7 @@ public class DirDiffUtil {
         String localSubDirName = subDirRetained.getDirName();
         File localSubDirFile = Paths.get(localDir.getAbsolutePath(), localSubDirName).toFile();
         DirIndex remoteSubDir = remoteSubDirs.get(localSubDirName);
-        boolean areSameSubDir = areSameDir(filesToIgnore, false).test(localSubDirFile, remoteSubDir);
+        boolean areSameSubDir = areSameDir(filesToIgnore, false, compareFileOwners).test(localSubDirFile, remoteSubDir);
         if (!areSameSubDir) {
           LOG.debug("Local sub-dir: {} and remote sub-dir: {} are not same.",
               localSubDirFile.getAbsolutePath(), remoteSubDir.getDirName());
@@ -148,9 +149,11 @@ public class DirDiffUtil {
    * the same file. Files with same attributes as well as content are same file. A SST file in a special case. They are
    * immutable, so we only compare their attributes but not the content.
    * @param compareLargeFileChecksums whether to compare checksums for large files (&gt; 1 MB).
+   * @param compareFileOwners whether to compare owners of the files. Useful when migrating an exiting job to new machine(s)
+   *                          that may have different owner ids.
    * @return BiPredicate to test similarity of local and remote files
    */
-  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums) {
+  public static BiPredicate<File, FileIndex> areSameFile(boolean compareLargeFileChecksums, boolean compareFileOwners) {
 
     // Cache owner/group names to reduce calls to sun.nio.fs.UnixFileAttributes.group
     Cache<String, String> groupCache = CacheBuilder.newBuilder().maximumSize(CACHE_SIZE).build();
@@ -168,11 +171,17 @@ public class DirDiffUtil {
 
           // Don't compare file timestamps. The ctime of a local file just restored will be different than the
           // remote file, and will cause the file to be uploaded again during the first commit after restore.
-          areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize() &&
-              groupCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")),
-                () -> localFileAttrs.group().getName()).equals(remoteFileMetadata.getGroup()) &&
-              ownerCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")),
-                () -> localFileAttrs.owner().getName()).equals(remoteFileMetadata.getOwner());
+          areSameFiles = localFileAttrs.size() == remoteFileMetadata.getSize();
+          // In case a job is moved to a new cluster/machine, the owners (gid/uid) may be different than the one present
+          // in the remote snapshot. This flag indicates if we should compare it at all.
+          if (compareFileOwners) {
+            LOG.trace("Comparing owners of remote and local copy of file {}", localFile.getAbsolutePath());
+            areSameFiles =
+                areSameFiles && groupCache.get(String.valueOf(Files.getAttribute(localFile.toPath(), "unix:gid")),
+                  () -> localFileAttrs.group().getName()).equals(remoteFileMetadata.getGroup()) && ownerCache.get(
+                       String.valueOf(Files.getAttribute(localFile.toPath(), "unix:uid")),
+                    () -> localFileAttrs.owner().getName()).equals(remoteFileMetadata.getOwner());
+          }
 
         } catch (IOException | ExecutionException e) {
           LOG.error("Error reading attributes for file: {}", localFile.getAbsolutePath());

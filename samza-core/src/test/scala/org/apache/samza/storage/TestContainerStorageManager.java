@@ -87,6 +87,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 import org.powermock.api.mockito.PowerMockito;
@@ -583,10 +584,24 @@ public class TestContainerStorageManager {
   @Test
   public void testRestoreRecoversFromDeletedException() throws Exception {
     TaskName taskName = new TaskName("task");
-    Set<String> stores = Collections.singleton("store");
+    String storeName = "store";
+    Set<String> stores = Collections.singleton(storeName);
+    String jobName = "job";
+    String jobId = "jobId";
+
+    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
+    doNothing().when(blobStoreManager).init();
+    doNothing().when(blobStoreManager).close();
 
     BlobStoreRestoreManager taskRestoreManager = mock(BlobStoreRestoreManager.class);
-    doNothing().when(taskRestoreManager).init(any(Checkpoint.class));
+    doAnswer(invocation -> {
+      blobStoreManager.init();
+      return null;
+    }).when(taskRestoreManager).init(any(Checkpoint.class));
+    doAnswer(invocation -> {
+      blobStoreManager.close();
+      return null;
+    }).when(taskRestoreManager).close();
 
     CompletableFuture<Void> failedFuture = CompletableFuture.completedFuture(null)
         .thenCompose(v -> { throw new DeletedException("410 Gone"); });
@@ -615,7 +630,7 @@ public class TestContainerStorageManager {
 
     String expectedOldBlobId = "oldBlobId";
     when(checkpoint.getStateCheckpointMarkers()).thenReturn(ImmutableMap.of(
-        BlobStoreStateBackendFactory.class.getName(), ImmutableMap.of("store", expectedOldBlobId)));
+        BlobStoreStateBackendFactory.class.getName(), ImmutableMap.of(storeName, expectedOldBlobId)));
 
     Map<TaskName, Checkpoint> taskCheckpoints = ImmutableMap.of(taskName, checkpoint);
 
@@ -625,7 +640,7 @@ public class TestContainerStorageManager {
 
     Config config = new MapConfig(ImmutableMap.of(
         "blob.store.manager.factory", BlobStoreStateBackendFactory.class.getName(),
-        "job.name", "test"));
+        "job.name", jobName));
 
     ExecutorService executor = Executors.newFixedThreadPool(5);
 
@@ -634,23 +649,25 @@ public class TestContainerStorageManager {
     // mock ReflectionUtil.getObj
     PowerMockito.mockStatic(ReflectionUtil.class);
     BlobStoreManagerFactory blobStoreManagerFactory = mock(BlobStoreManagerFactory.class);
-    BlobStoreManager blobStoreManager = mock(BlobStoreManager.class);
     PowerMockito.when(ReflectionUtil.getObj(anyString(), eq(BlobStoreManagerFactory.class)))
         .thenReturn(blobStoreManagerFactory);
     when(blobStoreManagerFactory.getRestoreBlobStoreManager(any(Config.class), any(ExecutorService.class)))
         .thenReturn(blobStoreManager);
 
+    // To verify order of operations
+    InOrder inOrder = inOrder(blobStoreManager, taskRestoreManager);
+
     // mock ContainerStorageManagerRestoreUtil.backupRecoveredStore
     String expectedBlobId = "blobId";
     PowerMockito.spy(ContainerStorageManagerRestoreUtil.class);
-    PowerMockito.doReturn(CompletableFuture.completedFuture(ImmutableMap.of("store", expectedBlobId)))
+    PowerMockito.doReturn(CompletableFuture.completedFuture(ImmutableMap.of(storeName, expectedBlobId)))
         .when(ContainerStorageManagerRestoreUtil.class, "backupRecoveredStore",
             any(JobContext.class), any(ContainerModel.class), any(Config.class),
             any(TaskName.class), any(Set.class), any(Checkpoint.class), any(File.class),
             any(BlobStoreManager.class), any(MetricsRegistry.class), any(ExecutorService.class));
 
     SnapshotIndex snapshotIndex = new SnapshotIndex(System.currentTimeMillis(),
-        new SnapshotMetadata(CheckpointId.create(), "job", "test", "task", "store"),
+        new SnapshotMetadata(CheckpointId.create(), jobName, jobId, taskName.getTaskName(), storeName),
         new DirIndex("test", new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>()),
         Optional.empty());
 
@@ -672,11 +689,17 @@ public class TestContainerStorageManager {
     when(blobStoreManager.delete(deleteBlobIdCaptor.capture(), any(Metadata.class)))
         .thenAnswer(invocation -> CompletableFuture.completedFuture(null));
 
-    Map<TaskName, Checkpoint> updatedTaskCheckpoints =
+    CompletableFuture<Map<TaskName, Checkpoint>> updatedTaskCheckpointsFuture =
         ContainerStorageManagerRestoreUtil.initAndRestoreTaskInstances(ImmutableMap.of(taskName, factoryToTaskRestoreManager),
             samzaContainerMetrics, checkpointManager, jobContext, containerModel, taskCheckpoints,
             taskBackendFactoryToStoreNames, config, executor, new HashMap<>(), null,
-            ImmutableMap.of("store", systemConsumer)).get();
+            ImmutableMap.of(storeName, systemConsumer));
+
+    // verify close is not called until init and restore futures are complete
+    verify(taskRestoreManager, never()).close();
+    Map<TaskName, Checkpoint> updatedTaskCheckpoints = updatedTaskCheckpointsFuture.get();
+    // verify close is called only once after restore future is complete
+    verify(taskRestoreManager, times(1)).close();
 
     // verify taskCheckpoint is updated
     assertNotEquals(((CheckpointV2) taskCheckpoints.get(taskName)).getCheckpointId(),
@@ -696,6 +719,16 @@ public class TestContainerStorageManager {
     // verify that GET and delete was called on the old SnapshotIndex
     assertEquals(expectedOldBlobId, getBlobIdCaptor.getAllValues().get(1));
     assertEquals(expectedOldBlobId, deleteBlobIdCaptor.getValue());
+
+    // verify the order of operations in taskRestoreManager and blobStoreManager
+    // Verifies that close is called after restore(true)
+    inOrder.verify(taskRestoreManager).init(any(Checkpoint.class));
+    inOrder.verify(blobStoreManager).init(); // init called on blobStoreManager passed to taskRestoreManager
+    inOrder.verify(taskRestoreManager).restore();
+    inOrder.verify(blobStoreManager).init(); // init called on blobStoreManager created in ContainerStorageManagerRestoreUtil#restoreDeletedSnapshot
+    inOrder.verify(taskRestoreManager).restore(true);
+    inOrder.verify(blobStoreManager).close(); // close called on blobStoreManager created in ContainerStorageManagerRestoreUtil#restoreDeletedSnapshot
+    inOrder.verify(blobStoreManager).close(); // close called on blobStoreManager passed to taskRestoreManager
   }
 
   @Test

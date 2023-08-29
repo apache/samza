@@ -86,19 +86,6 @@ public class TestApplicationUtil {
     ApplicationUtil.fromConfig(new MapConfig(configMap));
   }
 
-  @Test
-  public void testIsHighLevelJob() {
-    final Map<String, String> configMap = new HashMap<>();
-    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.HIGH_LEVEL.name());
-    assertTrue(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
-
-    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LOW_LEVEL.name());
-    assertFalse(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
-
-    configMap.put(ApplicationConfig.APP_API_TYPE, ApplicationApiType.LEGACY.name());
-    assertFalse(ApplicationUtil.isHighLevelApiJob(new MapConfig(configMap)));
-  }
-
   /**
    * Test class of {@link TaskApplication} for unit tests
    */

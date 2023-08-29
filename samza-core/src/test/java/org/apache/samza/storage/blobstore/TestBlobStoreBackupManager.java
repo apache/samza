@@ -261,7 +261,7 @@ public class TestBlobStoreBackupManager {
           File localCheckpointDir = new File(localRemoteSnapshotPair.getLeft() + "-" + checkpointId.serialize());
           DirIndex dirIndex = new DirIndex(localCheckpointDir.getName(), Collections.emptyList(), Collections.emptyList(),
               Collections.emptyList(), Collections.emptyList());
-          return DirDiffUtil.getDirDiff(localCheckpointDir, dirIndex, DirDiffUtil.areSameFile(false));
+          return DirDiffUtil.getDirDiff(localCheckpointDir, dirIndex, DirDiffUtil.areSameFile(false, true));
         }).collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirDiff::getDirName))));
 
     // assert - asset all DirDiff are put to blob store
@@ -369,7 +369,7 @@ public class TestBlobStoreBackupManager {
         .stream()
         .map(localRemoteSnapshotPair ->
             DirDiffUtil.getDirDiff(new File(localRemoteSnapshotPair.getLeft() + "-" + checkpointId.serialize()),
-            localRemoteSnapshotPair.getRight().getDirIndex(), DirDiffUtil.areSameFile(false)))
+            localRemoteSnapshotPair.getRight().getDirIndex(), DirDiffUtil.areSameFile(false, true)))
         .collect(Collectors.toCollection(() -> new TreeSet<>(Comparator.comparing(DirDiff::getDirName))));
 
     // assert - asset all DirDiff are put to blob store

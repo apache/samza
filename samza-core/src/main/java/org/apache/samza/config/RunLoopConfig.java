@@ -19,24 +19,21 @@
 package org.apache.samza.config;
 
 import java.util.concurrent.TimeUnit;
-import org.apache.samza.application.ApplicationUtil;
 
 
 /**
  * A container class to hold run loop related configurations to prevent constructor explosion
  * in {@link org.apache.samza.container.RunLoop}
  */
-public class RunLoopConfig {
+public class RunLoopConfig extends MapConfig {
   private static final String CONTAINER_DISK_QUOTA_DELAY_MAX_MS = "container.disk.quota.delay.max.ms";
   private ApplicationConfig appConfig;
-
-  private Config config;
   private JobConfig jobConfig;
   private TaskConfig taskConfig;
 
   public RunLoopConfig(Config config) {
+    super(config);
     this.appConfig = new ApplicationConfig(config);
-    this.config = config;
     this.jobConfig = new JobConfig(config);
     this.taskConfig = new TaskConfig(config);
   }
@@ -74,7 +71,7 @@ public class RunLoopConfig {
   }
 
   public long getMaxThrottlingDelayMs() {
-    return config.getLong(CONTAINER_DISK_QUOTA_DELAY_MAX_MS, TimeUnit.SECONDS.toMillis(1));
+    return getLong(CONTAINER_DISK_QUOTA_DELAY_MAX_MS, TimeUnit.SECONDS.toMillis(1));
   }
 
   public String getRunId() {
@@ -86,6 +83,6 @@ public class RunLoopConfig {
   }
 
   public boolean isHighLevelApiJob() {
-    return ApplicationUtil.isHighLevelApiJob(config);
+    return appConfig.isHighLevelApiJob();
   }
 }

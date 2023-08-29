@@ -133,8 +133,8 @@ public class ContainerStorageManagerRestoreUtil {
       Config config, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics, ExecutorService executor,
       File loggedStoreDir, Set<String> forceRestoreTask) {
 
-    Map<TaskName, CompletableFuture<Checkpoint>> newTaskCheckpoints = new ConcurrentHashMap<>();
-    List<Future<Void>> taskRestoreFutures = new ArrayList<>();
+    Map<TaskName, Checkpoint> newTaskCheckpoints = new ConcurrentHashMap<>();
+    List<Future<Void>> restoreAndCleanupFutures = new ArrayList<>();
 
     // Submit restore callable for each taskInstance
     taskRestoreManagers.forEach((taskInstanceName, restoreManagersMap) -> {
@@ -156,53 +156,101 @@ public class ContainerStorageManagerRestoreUtil {
           restoreFuture = taskRestoreManager.restore();
         }
 
-        CompletableFuture<Void> taskRestoreFuture = restoreFuture.handle((res, ex) -> {
-          updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
+        // Order of the following async operations is critical. They are chained as follows:
+        // 1. check if restore succeeded in the first try -> if it failed with DeletedException, flag restore to be retried.
+        // 2. retry restore with getDeleted if previous step completes and returns true.
+        // 3. Close taskRestoreManager after 1 (and 2, if there is a retry) completes
 
-          if (ex != null) {
-            if (isUnwrappedExceptionDeletedException(ex)) {
-              LOG.warn("Received DeletedException during restore for task {}. Attempting to get blobs with getDeleted flag",
-                  taskInstanceName.getTaskName());
+        CompletableFuture<Boolean> retryRestoreFuture =
+            restoreFuture.handle(
+              (res, t) -> shouldRetryFailedRestore(t, startTime, samzaContainerMetrics, taskInstanceName));
 
-              // Try to restore with getDeleted flag
-              CompletableFuture<Checkpoint> future =
-                  restoreDeletedSnapshot(taskInstanceName, taskCheckpoints,
-                      checkpointManager, taskRestoreManager, config, taskInstanceMetrics, executor,
-                      taskBackendFactoryToStoreNames.get(taskInstanceName).get(factoryName), loggedStoreDir,
-                      jobContext, containerModel);
-              try {
-                newTaskCheckpoints.put(taskInstanceName, future);
-              } catch (Exception e) {
-                String msg = String.format("DeletedException during restore task: %s after retrying to get deleted blobs.", taskName);
-                throw new SamzaException(msg, e);
-              } finally {
-                updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
-              }
-            } else {
-              // log and rethrow exception to communicate restore failure
-              String msg = String.format("Error restoring state for task: %s", taskName);
-              LOG.error(msg, ex);
-              throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
-            }
-          }
+        CompletableFuture<Checkpoint> taskCheckpointFuture =
+            retryRestoreFuture.thenCompose(
+              shouldRetryRestore -> retryFailedRestore(shouldRetryRestore, taskInstanceName, taskCheckpoints,
+                  checkpointManager, taskRestoreManager, config, taskInstanceMetrics, executor, loggedStoreDir,
+                  jobContext, containerModel, factoryName, taskBackendFactoryToStoreNames));
 
-          // Stop all persistent stores after restoring. Certain persistent stores opened in BulkLoad mode are compacted
-          // on stop, so paralleling stop() also parallelizes their compaction (a time-intensive operation).
-          try {
-            taskRestoreManager.close();
-          } catch (Exception e) {
-            LOG.error("Error closing restore manager for task: {} after {} restore", taskName,
-                ex != null ? "unsuccessful" : "successful", e);
-            // ignore exception from close. container may still be able to continue processing/backups
-            // if restore manager close fails.
-          }
-          return null;
-        });
-        taskRestoreFutures.add(taskRestoreFuture);
+        CompletableFuture<Void> cleanUpFuture =
+            taskCheckpointFuture.handle(
+              (checkpoint, t) -> cleanUpResources(checkpoint, t, startTime, samzaContainerMetrics, taskInstanceName,
+                  taskRestoreManager, newTaskCheckpoints));
+
+        restoreAndCleanupFutures.add(cleanUpFuture);
       });
     });
-    CompletableFuture<Void> restoreFutures = CompletableFuture.allOf(taskRestoreFutures.toArray(new CompletableFuture[0]));
-    return restoreFutures.thenCompose(ignoredVoid -> FutureUtil.toFutureOfMap(newTaskCheckpoints));
+
+    return CompletableFuture.allOf(restoreAndCleanupFutures.toArray(new CompletableFuture[0]))
+        .thenApply(aVoid -> newTaskCheckpoints);
+  }
+
+  /**
+   * Check if the restore should be retried. If previous restore failed with DeletedException, this method returns true.
+   */
+  private static boolean shouldRetryFailedRestore(Throwable ex, long startTime,
+      SamzaContainerMetrics samzaContainerMetrics, TaskName taskInstanceName) {
+    if (ex != null) {
+      if (isUnwrappedExceptionDeletedException(ex)) {
+        // if the exception is of type DeletedException, retry restore (with getDeleted flag set to true).
+        return true;
+      } else {
+        updateRestoreTime(startTime, samzaContainerMetrics, taskInstanceName);
+        // log and rethrow exception to communicate restore failure
+        String msg = String.format("Error restoring state for task: %s", taskInstanceName.getTaskName());
+        LOG.error(msg, ex);
+        throw new SamzaException(msg, ex); // wrap in unchecked exception to throw from lambda
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Creates a future for either the new task checkpoint (if the restore was retried), or the old task checkpoint.
+   */
+  private static CompletableFuture<Checkpoint> retryFailedRestore(boolean shouldRetryRestore, TaskName taskName,
+      Map<TaskName, Checkpoint> taskCheckpoints, CheckpointManager checkpointManager,
+      TaskRestoreManager taskRestoreManager, Config config, Map<TaskName, TaskInstanceMetrics> taskInstanceMetrics,
+      ExecutorService executor, File loggedStoreBaseDirectory, JobContext jobContext, ContainerModel containerModel,
+      String factoryName, Map<TaskName, Map<String, Set<String>>> taskBackendFactoryToStoreNames) {
+    if (shouldRetryRestore) {
+      // Try to restore with getDeleted flag - return a new task checkpoint
+      return restoreDeletedSnapshot(taskName, taskCheckpoints, checkpointManager, taskRestoreManager, config,
+          taskInstanceMetrics, executor, taskBackendFactoryToStoreNames.get(taskName).get(factoryName),
+          loggedStoreBaseDirectory, jobContext, containerModel);
+    }
+    // if shouldRetryRestore is false, do not retry restore. This means restore completed successfully in the first try
+    // Return the old task checkpoint as no new checkpoint was created
+    return CompletableFuture.completedFuture(taskCheckpoints.get(taskName));
+  }
+
+  /**
+   * cleanup all the resources (like taskRestoreManager), update restore time and update task checkpoint
+   * returned from the previous future in the chain
+   * NOTE: This method should be called concurrently for all {@link TaskRestoreManager}s so that stop() can be parallelized.
+   *       Certain persistent stores opened in BulkLoad mode are compacted on stop, so paralleling stop()
+   *       also parallelizes their compaction (a time-intensive operation).
+   */
+  private static Void cleanUpResources(Checkpoint checkpoint, Throwable throwable, long startTime,
+      SamzaContainerMetrics samzaContainerMetrics, TaskName taskName, TaskRestoreManager taskRestoreManager,
+      Map<TaskName, Checkpoint> newTaskCheckpoints) {
+    // exception or not, update the restore time and close TaskRestoreManager as there will be no more retries.
+    updateRestoreTime(startTime, samzaContainerMetrics, taskName);
+    try {
+      taskRestoreManager.close();
+    } catch (Exception exception) {
+      LOG.error("Error closing restore manager for task: {} after {} restore", taskName, exception);
+      // ignore exception from close. container may still be able to continue processing/backups
+      // if restore manager close fails.
+    }
+    if (throwable != null) {
+      String msg = String.format("Error restoring state for task: %s", taskName.getTaskName());
+      LOG.error(msg);
+      throw new SamzaException(msg, throwable);
+    }
+    if (checkpoint != null) {
+      newTaskCheckpoints.put(taskName, checkpoint);
+    }
+    return null;
   }
 
   /**
@@ -219,6 +267,8 @@ public class ContainerStorageManagerRestoreUtil {
       ExecutorService executor, Set<String> storesToRestore, File loggedStoreBaseDirectory, JobContext jobContext,
       ContainerModel containerModel) {
 
+    LOG.warn("Received DeletedException during restore for task {}. Attempting to get blobs with getDeleted set to true",
+        taskName.getTaskName());
     // if taskInstanceMetrics are specified use those for store metrics,
     // otherwise (in case of StorageRecovery) use a blank MetricsRegistryMap
     MetricsRegistry metricsRegistry =
@@ -226,6 +276,7 @@ public class ContainerStorageManagerRestoreUtil {
             : new MetricsRegistryMap();
 
     BlobStoreManager blobStoreManager = getBlobStoreManager(config, executor);
+    blobStoreManager.init();
     JobConfig jobConfig = new JobConfig(config);
     BlobStoreUtil blobStoreUtil =
         new BlobStoreUtil(blobStoreManager, executor, new BlobStoreConfig(config), null,
@@ -269,10 +320,13 @@ public class ContainerStorageManagerRestoreUtil {
         return CompletableFuture.allOf(deletePrevSnapshotFutures.toArray(new CompletableFuture[0]));
       });
 
-    // 5. create new checkpoint
     CompletableFuture<Checkpoint> newTaskCheckpointsFuture =
-        deleteOldSnapshotsFuture.thenCombine(backupStoresFuture, (aVoid, scms) ->
-            writeNewCheckpoint(taskName, checkpointId, scms, checkpointManager));
+        deleteOldSnapshotsFuture.thenCombine(backupStoresFuture, (aVoid, scms) -> {
+          // cleanup resources
+          blobStoreManager.close();
+          // 5. create new checkpoint
+          return writeNewCheckpoint(taskName, checkpointId, scms, checkpointManager);
+        });
 
     return newTaskCheckpointsFuture.exceptionally(ex -> {
       String msg = String.format("Could not restore task: %s after attempting to restore deleted blobs.", taskName);

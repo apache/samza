@@ -47,6 +47,10 @@ public class BlobStoreConfig extends MapConfig {
   public static final String RETRY_POLICY_JITTER_FACTOR =  RETRY_POLICY_PREFIX + "jitter.factor";
   // random retry delay between -0.1*retry-delay to 0.1*retry-delay
   public static final double DEFAULT_RETRY_POLICY_JITTER_FACTOR = 0.1;
+  // Set whether to compare file owners after restoring blobs from remote store. Useful when the job is started on a new
+  // machine with new gid/uid or if gid/uid changes due to host migration
+  public static final String COMPARE_FILE_OWNERS_ON_RESTORE = PREFIX + "compare.file.owners.on.restore";
+  public static final boolean DEFAULT_COMPARE_FILE_OWNERS_ON_RESTORE = true;
 
   public BlobStoreConfig(Config config) {
     super(config);
@@ -69,5 +73,9 @@ public class BlobStoreConfig extends MapConfig {
             getLong(RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS, DEFAULT_RETRY_POLICY_BACKOFF_MAX_DELAY_MILLIS),
             getInt(RETRY_POLICY_BACKOFF_DELAY_FACTOR, DEFAULT_RETRY_POLICY_BACKOFF_DELAY_FACTOR), ChronoUnit.MILLIS);
     return retryPolicyConfig;
+  }
+
+  public boolean shouldCompareFileOwnersOnRestore() {
+    return getBoolean(COMPARE_FILE_OWNERS_ON_RESTORE, DEFAULT_COMPARE_FILE_OWNERS_ON_RESTORE);
   }
 }
