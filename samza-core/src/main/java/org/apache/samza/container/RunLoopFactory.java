@@ -19,7 +19,8 @@
 
 package org.apache.samza.container;
 
-import org.apache.samza.config.TaskConfig;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.RunLoopConfig;
 import org.apache.samza.system.SystemConsumers;
 import org.apache.samza.util.HighResolutionClock;
 import org.slf4j.Logger;
@@ -37,46 +38,9 @@ public class RunLoopFactory {
   public static Runnable createRunLoop(scala.collection.immutable.Map<TaskName, RunLoopTask> taskInstances,
       SystemConsumers consumerMultiplexer,
       ExecutorService threadPool,
-      long maxThrottlingDelayMs,
       SamzaContainerMetrics containerMetrics,
-      TaskConfig taskConfig,
       HighResolutionClock clock,
-      int elasticityFactor,
-      String runId,
-      boolean isHighLevelApiJob) {
-
-    long taskWindowMs = taskConfig.getWindowMs();
-
-    log.info("Got window milliseconds: {}.", taskWindowMs);
-
-    long taskCommitMs = taskConfig.getCommitMs();
-
-    log.info("Got commit milliseconds: {}.", taskCommitMs);
-
-    int taskMaxConcurrency = taskConfig.getMaxConcurrency();
-    log.info("Got taskMaxConcurrency: {}.", taskMaxConcurrency);
-
-    boolean isAsyncCommitEnabled = taskConfig.getAsyncCommit();
-    log.info("Got asyncCommitEnabled: {}.", isAsyncCommitEnabled);
-
-    long callbackTimeout = taskConfig.getCallbackTimeoutMs();
-    log.info("Got callbackTimeout: {}.", callbackTimeout);
-
-    long drainCallbackTimeout = taskConfig.getDrainCallbackTimeoutMs();
-    log.info("Got callback timeout for drain: {}.", callbackTimeout);
-
-    long maxIdleMs = taskConfig.getMaxIdleMs();
-    log.info("Got maxIdleMs: {}.", maxIdleMs);
-
-    log.info("Got elasticity factor: {}.", elasticityFactor);
-
-    log.info("Got current run Id: {}.", runId);
-
-    if (isHighLevelApiJob) {
-      log.info("The application uses high-level API.");
-    } else {
-      log.info("The application doesn't use high-level API.");
-    }
+      Config config) {
 
     log.info("Run loop in asynchronous mode.");
 
@@ -84,18 +48,8 @@ public class RunLoopFactory {
       JavaConverters.mapAsJavaMapConverter(taskInstances).asJava(),
       threadPool,
       consumerMultiplexer,
-      taskMaxConcurrency,
-      taskWindowMs,
-      taskCommitMs,
-      callbackTimeout,
-      drainCallbackTimeout,
-      maxThrottlingDelayMs,
-      maxIdleMs,
       containerMetrics,
       clock,
-      isAsyncCommitEnabled,
-      elasticityFactor,
-      runId,
-      isHighLevelApiJob);
+      new RunLoopConfig(config));
   }
 }

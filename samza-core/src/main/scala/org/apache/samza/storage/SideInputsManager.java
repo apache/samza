@@ -22,6 +22,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import org.apache.samza.config.RunLoopConfig;
 import scala.collection.JavaConversions;
 
 import java.io.File;
@@ -39,7 +40,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.samza.SamzaException;
-import org.apache.samza.application.ApplicationUtil;
 import org.apache.samza.config.ApplicationConfig;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.JobConfig;
@@ -255,24 +255,13 @@ public class SideInputsManager {
 
       final ApplicationConfig applicationConfig = new ApplicationConfig(config);
 
+      SideInputRunLoopConfig runLoopConfig = new SideInputRunLoopConfig(config);
       this.sideInputRunLoop = new RunLoop(sideInputTasks,
           null, // all operations are executed in the main runloop thread
           this.sideInputSystemConsumers,
-          1, // single message in flight per task
-          -1, // no windowing
-          taskConfig.getCommitMs(),
-          taskConfig.getCallbackTimeoutMs(),
-          taskConfig.getDrainCallbackTimeoutMs(),
-          // TODO consolidate these container configs SAMZA-2275
-          this.config.getLong("container.disk.quota.delay.max.ms", TimeUnit.SECONDS.toMillis(1)),
-          taskConfig.getMaxIdleMs(),
           sideInputContainerMetrics,
           System::nanoTime,
-          false,
-          DEFAULT_SIDE_INPUT_ELASTICITY_FACTOR,
-          applicationConfig.getRunId(),
-          ApplicationUtil.isHighLevelApiJob(config)
-      ); // commit must be synchronous to ensure integrity of state flush
+          runLoopConfig);
 
       try {
         sideInputsExecutor.submit(() -> {
@@ -506,5 +495,41 @@ public class SideInputsManager {
       }
     }
     return true;
+  }
+
+  /**
+   * Decorated {@link RunLoopConfig} used for side inputs flow in samza. The properties of {@link RunLoop} for side
+   * input use case is as follows
+   *   1. Max concurrency within a side input task is always <i>1</i>. This is critical as ordering of OPs (CRUD) for
+   *      side input stores needs to be followed to recreate the correct snapshot of the external data
+   *   2. Side input tasks don't have any windows. We only allow users to plugin process functions
+   *   3. Commits are synchronous as we need to ensure data integrity upon state flushes
+   */
+  private static class SideInputRunLoopConfig extends RunLoopConfig {
+
+    public SideInputRunLoopConfig(Config config) {
+      super(config);
+    }
+
+    @Override
+    public int getMaxConcurrency() {
+      return 1;
+    }
+
+    @Override
+    public long getWindowMs() {
+      return -1;
+    }
+
+    @Override
+    public int getElasticityFactor() {
+      return DEFAULT_SIDE_INPUT_ELASTICITY_FACTOR;
+    }
+
+    // commit must be synchronous to ensure integrity of state flush
+    @Override
+    public boolean asyncCommitEnabled() {
+      return false;
+    }
   }
 }

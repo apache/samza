@@ -64,13 +64,4 @@ public class ApplicationUtil {
     }
     return new LegacyTaskApplication(taskClassOption.get());
   }
-
-  /**
-   * Determines if the job is a Samza high-level job.
-   * @param config config
-   * */
-  public static boolean isHighLevelApiJob(Config config) {
-    final ApplicationConfig applicationConfig = new ApplicationConfig(config);
-    return applicationConfig.getAppApiType() == ApplicationApiType.HIGH_LEVEL;
-  }
 }
