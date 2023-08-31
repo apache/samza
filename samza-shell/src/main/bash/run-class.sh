@@ -57,7 +57,11 @@ CLASSPATH=""
 # all the jars need to be appended on newlines to ensure line argument length of 72 bytes is not violated
 for file in $BASE_LIB_DIR/*.[jw]ar;
 do
-  CLASSPATH=$CLASSPATH" $file \n"
+  # Symlinks need to be resolved here, otherwise, the jars listed in the
+  # manifest below will point at the first container launched instead of
+  # the jars at the application level.
+  resolved_file=$( cd $(dirname $(readlink `[[ $OSTYPE == linux* ]] && echo "-f"` "$file")) ; pwd -P)
+  CLASSPATH=$CLASSPATH" $resolved_file \n"
 done
 echo generated from BASE_LIB_DIR CLASSPATH=$CLASSPATH
 
