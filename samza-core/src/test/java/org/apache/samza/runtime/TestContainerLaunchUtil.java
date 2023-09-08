@@ -61,8 +61,8 @@ public class TestContainerLaunchUtil {
         .when(ContainerLaunchUtil.class, "run", eq(APP_DESC), eq(JOB_NAME), eq(JOB_ID), eq(CONTAINER_ID), any(), any(),
             eq(JOB_MODEL), eq(CONFIG), any());
 
-    ContainerLaunchUtil.run(APP_DESC, JOB_NAME, JOB_ID, CONTAINER_ID, Optional.empty(), Optional.empty(), JOB_MODEL,
+    int exitCode = ContainerLaunchUtil.run(APP_DESC, JOB_NAME, JOB_ID, CONTAINER_ID, Optional.empty(), Optional.empty(), JOB_MODEL,
         CONFIG, Optional.empty());
-    assertTrue(completionLatch.await(1, TimeUnit.SECONDS));
+    assertEquals(1, exitCode);
   }
 }
