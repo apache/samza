@@ -68,7 +68,9 @@ public class DefaultTaskExecutorFactory implements TaskExecutorFactory {
       } else {
         LOG.info("Using single threaded thread pool as operator thread pool for task {}", key.getTaskName());
         operatorExecutor = Executors.newSingleThreadExecutor(
-            new ThreadFactoryBuilder().setNameFormat("Samza " + key.getTaskName() + " Thread-%d").build());
+            new ThreadFactoryBuilder().setNameFormat("Samza " + key.getTaskName() + " Thread-%d")
+                .setDaemon(true)
+                .build());
       }
 
       return operatorExecutor;
