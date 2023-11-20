@@ -93,9 +93,13 @@ class TaskInstance(
     val jobConfig = new JobConfig(jobContext.getConfig)
     val taskExecutorFactory = ReflectionUtil.getObj(jobConfig.getTaskExecutorFactory, classOf[TaskExecutorFactory])
 
+    var operatorExecutor = Option.empty[java.util.concurrent.ExecutorService].orNull
+    if (jobConfig.getOperatorFrameworkExecutorEnabled) {
+      operatorExecutor = taskExecutorFactory.getOperatorExecutor(taskName, jobContext.getConfig)
+    }
     new TaskContextImpl(taskModel, metrics.registry, kvStoreSupplier, tableManager,
       new CallbackSchedulerImpl(epochTimeScheduler), offsetManager, jobModel, streamMetadataCache,
-      systemStreamPartitions, taskExecutorFactory.getOperatorExecutor(taskName, jobContext.getConfig))
+      systemStreamPartitions, operatorExecutor)
   }
   // need separate field for this instead of using it through Context, since Context throws an exception if it is null
   private val applicationTaskContextOption = applicationTaskContextFactoryOption

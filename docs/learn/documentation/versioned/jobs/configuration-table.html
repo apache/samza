@@ -495,6 +495,16 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="job.operator.framework.executor.enabled">job.operator.framework.executor.enabled</td>
+                    <td class="default">false</td>
+                    <td class="description">
+                        If enabled, framework thread pool will be used for message hand off and sub DAG execution. Otherwise, the
+                        execution will fall back to using caller thread or java fork join pool depending on the type of work
+                        chained as part of message hand off.
+                    </td>
+                </tr>
+
+                <tr>
                                               <!-- change link to StandAlone design/tutorial doc. SAMZA-1299 -->
                 <th colspan="3" class="section" id="ZkBasedJobCoordination"><a href="../index.html">Zookeeper-based job configuration</a></th>
                 </tr>

@@ -196,6 +196,10 @@ public class JobConfig extends MapConfig {
   public static final String JOB_ELASTICITY_FACTOR = "job.elasticity.factor";
   public static final int DEFAULT_JOB_ELASTICITY_FACTOR = 1;
 
+  public static final String JOB_OPERATOR_FRAMEWORK_EXECUTOR_ENABLED = "job.operator.framework.executor.enabled";
+
+  public static final boolean DEFAULT_JOB_OPERATOR_FRAMEWORK_EXECUTOR_ENABLED = false;
+
   public JobConfig(Config config) {
     super(config);
   }
@@ -526,5 +530,9 @@ public class JobConfig extends MapConfig {
 
   public String getCoordinatorExecuteCommand() {
     return get(COORDINATOR_EXECUTE_COMMAND, DEFAULT_COORDINATOR_EXECUTE_COMMAND);
+  }
+
+  public boolean getOperatorFrameworkExecutorEnabled() {
+    return getBoolean(JOB_OPERATOR_FRAMEWORK_EXECUTOR_ENABLED, DEFAULT_JOB_OPERATOR_FRAMEWORK_EXECUTOR_ENABLED);
   }
 }
