@@ -18,7 +18,9 @@
  */
 package org.apache.samza.config;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
+import org.apache.commons.lang3.StringUtils;
 
 
 public class ShellCommandConfig extends MapConfig {
@@ -77,6 +79,7 @@ public class ShellCommandConfig extends MapConfig {
 
   public static final String COMMAND_SHELL_EXECUTE = "task.execute";
   public static final String TASK_JVM_OPTS = "task.opts";
+  public static final String WORKER_JVM_OPTS = "worker.opts";
   public static final String TASK_JAVA_HOME = "task.java.home";
 
   /**
@@ -97,20 +100,19 @@ public class ShellCommandConfig extends MapConfig {
   }
 
   public Optional<String> getTaskOpts() {
-    Optional<String> jvmOpts = Optional.ofNullable(get(ShellCommandConfig.TASK_JVM_OPTS));
-    Optional<String> maxHeapMbOptional = Optional.ofNullable(get(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB));
-    if (new JobConfig(this).getAutosizingEnabled() && maxHeapMbOptional.isPresent()) {
-      String maxHeapMb = maxHeapMbOptional.get();
-      String xmxSetting = "-Xmx" + maxHeapMb + "m";
-      if (jvmOpts.isPresent() && jvmOpts.get().contains("-Xmx")) {
-        jvmOpts = Optional.of(jvmOpts.get().replaceAll("-Xmx\\S+", xmxSetting));
-      } else if (jvmOpts.isPresent()) {
-        jvmOpts = Optional.of(jvmOpts.get().concat(" " + xmxSetting));
-      } else {
-        jvmOpts = Optional.of(xmxSetting);
-      }
-    }
-    return jvmOpts;
+    String taskOpts = get(ShellCommandConfig.TASK_JVM_OPTS);
+    String autosizingContainerMaxHeap = get(JobConfig.JOB_AUTOSIZING_CONTAINER_MAX_HEAP_MB);
+
+    return Optional.ofNullable(getFinalJvmOptions(taskOpts, autosizingContainerMaxHeap));
+  }
+
+  /**
+   * Returns the worker opts for the application if available.
+   */
+  public Optional<String> getWorkerOpts() {
+    String autosizingWorkerHeapMb = get(JobConfig.JOB_AUTOSIZING_WORKER_MAX_HEAP_MB);
+    String workerOpts = get(ShellCommandConfig.WORKER_JVM_OPTS);
+    return Optional.ofNullable(getFinalJvmOptions(workerOpts, autosizingWorkerHeapMb));
   }
 
   public Optional<String> getJavaHome() {
@@ -119,5 +121,27 @@ public class ShellCommandConfig extends MapConfig {
 
   public Optional<String> getAdditionalClasspathDir() {
     return Optional.ofNullable(get(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR));
+  }
+
+  /**
+   * Returns the final JVM options by applying the heap override if available to the jvm opts
+   */
+  @VisibleForTesting
+  String getFinalJvmOptions(String jvmOpts, String maxHeapOverride) {
+    String finalJvmOpts = jvmOpts;
+    if (new JobConfig(this).getAutosizingEnabled() && StringUtils.isNotEmpty(maxHeapOverride)) {
+      String xmxSetting = "-Xmx" + maxHeapOverride + "m";
+      if (StringUtils.isNotBlank(jvmOpts)) {
+        if (jvmOpts.contains("-Xmx")) {
+          finalJvmOpts = jvmOpts.replaceAll("-Xmx\\S+", xmxSetting);
+        } else {
+          finalJvmOpts = jvmOpts.concat(" " + xmxSetting);
+        }
+      } else {
+        finalJvmOpts = xmxSetting;
+      }
+    }
+
+    return finalJvmOpts;
   }
 }

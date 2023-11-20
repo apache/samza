@@ -2049,6 +2049,21 @@
                 </tr>
 
                 <tr>
+                    <td class="property" id="worker-opts">worker.opts</td>
+                    <td class="default"></td>
+                    <td class="description">
+                        Any JVM options to include in the command line when executing worker process in portable execution of Samza using beam. For example,
+                        this can be used to set the JVM heap size, to tune the garbage collector, or to enable
+                        <a href="/learn/tutorials/{{site.version}}/remote-debugging-samza.html">remote debugging</a>.
+                        Anything you put in <code>worker.opts</code> gets forwarded directly to the commandline of worker process as part of the JVM invocation.
+                        <b>Note:</b> The configuration only applies for Samza Beam portable mode.
+                        <dl>
+                            <dt>Example: <code>worker.opts=-XX:+HeapDumpOnOutOfMemoryError -XX:+UseConcMarkSweepGC</code></dt>
+                        </dl>
+                    </td>
+                </tr>
+
+                <tr>
                     <td class="property" id="yarn-package-path">yarn.package.path</td>
                     <td class="default"></td>
                     <td class="description">
