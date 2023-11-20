@@ -106,6 +106,9 @@ public class ShellCommandConfig extends MapConfig {
     return Optional.ofNullable(getFinalJvmOptions(taskOpts, autosizingContainerMaxHeap));
   }
 
+  /**
+   * Returns the worker opts for the application if available.
+   */
   public Optional<String> getWorkerOpts() {
     String autosizingWorkerHeapMb = get(JobConfig.JOB_AUTOSIZING_WORKER_MAX_HEAP_MB);
     String workerOpts = get(ShellCommandConfig.WORKER_JVM_OPTS);
@@ -120,6 +123,9 @@ public class ShellCommandConfig extends MapConfig {
     return Optional.ofNullable(get(ShellCommandConfig.ADDITIONAL_CLASSPATH_DIR));
   }
 
+  /**
+   * Returns the final JVM options by applying the heap override if available to the jvm opts
+   */
   @VisibleForTesting
   String getFinalJvmOptions(String jvmOpts, String maxHeapOverride) {
     String finalJvmOpts = jvmOpts;
