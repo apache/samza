@@ -18,16 +18,24 @@
  */
 package org.apache.samza.operators.impl;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import org.apache.samza.config.Config;
+import org.apache.samza.config.MapConfig;
+import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
-import org.apache.samza.context.MockContext;
+import org.apache.samza.context.JobContext;
+import org.apache.samza.context.TaskContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
 import org.apache.samza.metrics.MetricsRegistryMap;
@@ -44,33 +52,111 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyObject;
-import static org.mockito.Matchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Matchers.*;
+import static org.mockito.Mockito.*;
 
 
 public class TestOperatorImpl {
   private Context context;
   private InternalTaskContext internalTaskContext;
 
+  private JobContext jobContext;
+
+  private TaskContext taskContext;
+
+  private ContainerContext containerContext;
+
   @Before
   public void setup() {
-    this.context = new MockContext();
+    this.context = mock(Context.class);
     this.internalTaskContext = mock(InternalTaskContext.class);
+    this.jobContext = mock(JobContext.class);
+    this.taskContext = mock(TaskContext.class);
+    this.containerContext = mock(ContainerContext.class);
     when(this.internalTaskContext.getContext()).thenReturn(this.context);
     // might be necessary in the future
     when(this.internalTaskContext.fetchObject(EndOfStreamStates.class.getName())).thenReturn(mock(EndOfStreamStates.class));
     when(this.internalTaskContext.fetchObject(WatermarkStates.class.getName())).thenReturn(mock(WatermarkStates.class));
-    when(this.context.getTaskContext().getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
-    when(this.context.getTaskContext().getTaskModel()).thenReturn(mock(TaskModel.class));
-    when(this.context.getTaskContext().getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
-    when(this.context.getContainerContext().getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.context.getJobContext()).thenReturn(jobContext);
+    when(this.context.getTaskContext()).thenReturn(taskContext);
+    when(this.taskContext.getTaskMetricsRegistry()).thenReturn(new MetricsRegistryMap());
+    when(this.taskContext.getTaskModel()).thenReturn(mock(TaskModel.class));
+    when(this.taskContext.getOperatorExecutor()).thenReturn(Executors.newSingleThreadExecutor());
+    when(this.context.getContainerContext()).thenReturn(containerContext);
+    when(containerContext.getContainerMetricsRegistry()).thenReturn(new MetricsRegistryMap());
   }
 
+  @Test
+  public void testComposeFutureWithExecutorWithFrameworkExecutorEnabled() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    CompletionStage<Object> mockFuture = mock(CompletionStage.class);
+    Function<Object, CompletionStage<Object>> mockFunction = mock(Function.class);
+
+    Config config = new MapConfig(ImmutableMap.of("job.operator.framework.executor.enabled", "true"));
+
+    when(this.taskContext.getOperatorExecutor()).thenReturn(mockExecutor);
+    when(this.jobContext.getConfig()).thenReturn(config);
+
+    opImpl.init(this.internalTaskContext);
+    opImpl.composeFutureWithExecutor(mockFuture, mockFunction);
+
+    verify(mockFuture).thenComposeAsync(eq(mockFunction), eq(mockExecutor));
+  }
+
+  @Test
+  public void testComposeFutureWithExecutorWithFrameworkExecutorDisabled() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    CompletionStage<Object> mockFuture = mock(CompletionStage.class);
+    Function<Object, CompletionStage<Object>> mockFunction = mock(Function.class);
+
+    Config config = new MapConfig(ImmutableMap.of("job.operator.framework.executor.enabled", "false"));
+
+    when(this.taskContext.getOperatorExecutor()).thenReturn(mockExecutor);
+    when(this.jobContext.getConfig()).thenReturn(config);
+
+    opImpl.init(this.internalTaskContext);
+    opImpl.composeFutureWithExecutor(mockFuture, mockFunction);
+
+    verify(mockFuture).thenCompose(eq(mockFunction));
+  }
+
+  @Test
+  public void testAcceptFutureWithExecutorWithFrameworkExecutorDisabled() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    CompletionStage<Object> mockFuture = mock(CompletionStage.class);
+    Consumer<Object> mockConsumer = mock(Consumer.class);
+
+    Config config = new MapConfig(ImmutableMap.of("job.operator.framework.executor.enabled", "false"));
+
+    when(this.taskContext.getOperatorExecutor()).thenReturn(mockExecutor);
+    when(this.jobContext.getConfig()).thenReturn(config);
+
+    opImpl.init(this.internalTaskContext);
+    opImpl.acceptFutureWithExecutor(mockFuture, mockConsumer);
+
+    verify(mockFuture).thenAccept(eq(mockConsumer));
+  }
+
+  @Test
+  public void testAcceptFutureWithExecutorWithFrameworkExecutorEnabled() {
+    OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
+    ExecutorService mockExecutor = mock(ExecutorService.class);
+    CompletionStage<Object> mockFuture = mock(CompletionStage.class);
+    Consumer<Object> mockConsumer = mock(Consumer.class);
+
+    Config config = new MapConfig(ImmutableMap.of("job.operator.framework.executor.enabled", "true"));
+
+    when(this.taskContext.getOperatorExecutor()).thenReturn(mockExecutor);
+    when(this.jobContext.getConfig()).thenReturn(config);
+
+    opImpl.init(this.internalTaskContext);
+    opImpl.acceptFutureWithExecutor(mockFuture, mockConsumer);
+
+    verify(mockFuture).thenAcceptAsync(eq(mockConsumer), eq(mockExecutor));
+  }
   @Test(expected = IllegalStateException.class)
   public void testMultipleInitShouldThrow() {
     OperatorImpl<Object, Object> opImpl = new TestOpImpl(mock(Object.class));
