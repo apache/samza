@@ -35,7 +35,6 @@ import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.context.JobContext;
-import org.apache.samza.context.MockContext;
 import org.apache.samza.context.TaskContext;
 import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.metrics.Counter;
