@@ -111,6 +111,14 @@ public class CoordinatorStreamSystemProducer {
   }
 
   /**
+   * Flushes underlying system producer.
+   * */
+  public void flush(String source) {
+    log.info("Flushing coordinator stream producer.");
+    systemProducer.flush(source);
+  }
+
+  /**
    * Serialize and send a coordinator stream message.
    *
    * @param message
