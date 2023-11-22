@@ -65,6 +65,7 @@ public class CoordinatorStreamWriter {
    */
   public void stop() {
     log.info("Stopping the coordinator stream producer.");
+    coordinatorStreamSystemProducer.flush(SOURCE);
     coordinatorStreamSystemProducer.stop();
   }
 
