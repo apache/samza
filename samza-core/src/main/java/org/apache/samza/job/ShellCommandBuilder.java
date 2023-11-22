@@ -44,9 +44,10 @@ public class ShellCommandBuilder extends CommandBuilder {
     envBuilder.put(ShellCommandConfig.ENV_CONTAINER_ID, this.id);
     envBuilder.put(ShellCommandConfig.ENV_COORDINATOR_URL, this.url.toString());
     envBuilder.put(ShellCommandConfig.ENV_JAVA_OPTS, shellCommandConfig.getTaskOpts().orElse(""));
-    envBuilder.put(ShellCommandConfig.WORKER_JVM_OPTS, shellCommandConfig.getWorkerOpts().orElse(""));
     envBuilder.put(ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR,
         shellCommandConfig.getAdditionalClasspathDir().orElse(""));
+    shellCommandConfig.getWorkerOpts()
+        .ifPresent(workerOpts -> envBuilder.put(ShellCommandConfig.WORKER_JVM_OPTS, workerOpts));
     shellCommandConfig.getJavaHome().ifPresent(javaHome -> envBuilder.put(ShellCommandConfig.ENV_JAVA_HOME, javaHome));
     return envBuilder.build();
   }

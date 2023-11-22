@@ -45,7 +45,6 @@ public class TestShellCommandBuilder {
         ShellCommandConfig.ENV_CONTAINER_ID, "1",
         ShellCommandConfig.ENV_COORDINATOR_URL, URL_STRING,
         ShellCommandConfig.ENV_JAVA_OPTS, "",
-        ShellCommandConfig.WORKER_JVM_OPTS, "",
         ShellCommandConfig.ENV_ADDITIONAL_CLASSPATH_DIR, "");
     // assertions when command path is not set
     assertEquals("foo", shellCommandBuilder.buildCommand());
