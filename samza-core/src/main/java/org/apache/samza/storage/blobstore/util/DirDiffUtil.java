@@ -219,7 +219,7 @@ public class DirDiffUtil {
         if (!compareLargeFileChecksums && isLargeFile) {
           // Since RocksDB SST files are immutable after creation, we can skip the expensive checksum computations
           // which requires reading the entire file.
-          LOG.debug("Local file: {} and remote file: {} are same. " +
+          LOG.debug("Local file: {} and remote file: {} both present. " +
                   "Skipping checksum calculation for large file of size: {}.",
               localFile.getAbsolutePath(), remoteFile.getFileName(), localFileAttrs.size());
           return true;
@@ -234,7 +234,7 @@ public class DirDiffUtil {
 
             boolean areSameChecksum = localFileChecksum == remoteFile.getChecksum();
             if (!areSameChecksum) {
-              LOG.warn("Local file: {} and remote file: {} are not same. " +
+              LOG.debug("Local file: {} and remote file: {} are not same. " +
                       "Local checksum: {}. Remote checksum: {}",
                   localFile.getAbsolutePath(), remoteFile.getFileName(), localFileChecksum, remoteFile.getChecksum());
             } else {
