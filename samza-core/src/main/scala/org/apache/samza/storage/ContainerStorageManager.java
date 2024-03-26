@@ -200,10 +200,11 @@ public class ContainerStorageManager {
         ContainerStorageManagerUtil.getNonSideInputNonInMemoryStores(storageEngineFactories, sideInputStoreNames, config);
     for (String storeName : storesToCreate) {
       for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
-            File storeDirPath = ContainerStorageManagerUtil.getStoreDirPath(storeName, config, activeTaskChangelogSystemStreams,
+        File storeDirPath =
+            ContainerStorageManagerUtil.getStoreDirPath(storeName, config, activeTaskChangelogSystemStreams,
                 sideInputStoreNames, task.getKey(), task.getValue(), storageManagerUtil, loggedStoreBaseDirectory,
                 nonLoggedStoreBaseDirectory);
-            storeDirectoryPaths.add(storeDirPath.toPath());
+        storeDirectoryPaths.add(storeDirPath.toPath());
       }
     }
 
