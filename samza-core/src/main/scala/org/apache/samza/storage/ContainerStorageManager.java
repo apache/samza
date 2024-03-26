@@ -45,6 +45,7 @@ import org.apache.samza.context.ContainerContext;
 import org.apache.samza.context.JobContext;
 import org.apache.samza.job.model.ContainerModel;
 import org.apache.samza.job.model.TaskMode;
+import org.apache.samza.job.model.TaskModel;
 import org.apache.samza.serializers.Serde;
 import org.apache.samza.serializers.SerdeManager;
 import org.apache.samza.storage.blobstore.BlobStoreStateBackendFactory;
@@ -191,6 +192,20 @@ public class ContainerStorageManager {
     // create a map from storeNames to changelog system consumers (1 per system in activeTaskChangelogSystemStreams)
     this.storeConsumers = ContainerStorageManagerUtil.createStoreChangelogConsumers(
         activeTaskChangelogSystemStreams, systemFactories, samzaContainerMetrics.registry(), config);
+
+    // The store directory paths are used by SamzaContainer to add a metric to watch the disk space usage of the store
+    // directories. The stores itself does not need to be created but the store directory paths need to be set to be
+    // able to monitor them, once they're created and in use.
+    Set<String> storesToCreate =
+        ContainerStorageManagerUtil.getNonSideInputNonInMemoryStores(storageEngineFactories, sideInputStoreNames, config);
+    for (String storeName : storesToCreate) {
+      for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
+            File storeDirPath = ContainerStorageManagerUtil.getStoreDirPath(storeName, config, activeTaskChangelogSystemStreams,
+                sideInputStoreNames, task.getKey(), task.getValue(), storageManagerUtil, loggedStoreBaseDirectory,
+                nonLoggedStoreBaseDirectory);
+            storeDirectoryPaths.add(storeDirPath.toPath());
+      }
+    }
 
     JobConfig jobConfig = new JobConfig(config);
     int restoreThreadPoolSize =

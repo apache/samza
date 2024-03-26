@@ -79,7 +79,6 @@ public class ContainerStorageManagerUtil {
       File loggedStoreBaseDirectory, File nonLoggedStoreBaseDirectory,
       Config config) {
     Map<TaskName, Map<String, StorageEngine>> taskStores = new HashMap<>();
-    StorageConfig storageConfig = new StorageConfig(config);
 
     // iterate over each task and each storeName
     for (Map.Entry<TaskName, TaskModel> task : containerModel.getTasks().entrySet()) {
@@ -90,15 +89,8 @@ public class ContainerStorageManagerUtil {
       }
 
       for (String storeName : storesToCreate) {
-        List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
-        // A store is considered durable if it is backed by a changelog or another backupManager factory
-        boolean isDurable = activeTaskChangelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
-        boolean isSideInput = sideInputStoreNames.contains(storeName);
-        // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
-        // for non logged stores
-        File storeBaseDir = isDurable || isSideInput ? loggedStoreBaseDirectory : nonLoggedStoreBaseDirectory;
-        File storeDirectory = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName,
-            taskModel.getTaskMode());
+        File storeDirectory = getStoreDirPath(storeName, config, activeTaskChangelogSystemStreams,
+            sideInputStoreNames, taskName, taskModel, storageManagerUtil, loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory);
         storeDirectoryPaths.add(storeDirectory.toPath());
 
         // if taskInstanceMetrics are specified use those for store metrics,
@@ -411,5 +403,33 @@ public class ContainerStorageManagerUtil {
       sideInputStores.addAll(changelogSystemStreams.keySet());
     }
     return sideInputStores;
+  }
+
+  public static Set<String> getNonSideInputNonInMemoryStores(Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
+      Set<String> sideInputStoreNames, Config config) {
+    Set<String> inMemoryStoreNames =
+        ContainerStorageManagerUtil.getInMemoryStoreNames(storageEngineFactories, config);
+    Set<String> nonSideInputStoreNames =
+        storageEngineFactories.keySet().stream().filter(storeName -> !sideInputStoreNames.contains(storeName))
+            .collect(Collectors.toSet());
+    Set<String> storeNames = nonSideInputStoreNames.stream()
+        .filter(s -> !inMemoryStoreNames.contains(s)).collect(Collectors.toSet());
+    return storeNames;
+  }
+
+  public static File getStoreDirPath(String storeName, Config config, Map<String, SystemStream> activeTaskChangelogSystemStreams,
+      Set<String> sideInputStoreNames, TaskName taskName, TaskModel taskModel, StorageManagerUtil storageManagerUtil,
+      File loggedStoreBaseDirectory, File nonLoggedStoreBaseDirectory) {
+    StorageConfig storageConfig = new StorageConfig(config);
+    List<String> storeBackupManagers = storageConfig.getStoreBackupFactories(storeName);
+    // A store is considered durable if it is backed by a changelog or another backupManager factory
+    boolean isDurable = activeTaskChangelogSystemStreams.containsKey(storeName) || !storeBackupManagers.isEmpty();
+    boolean isSideInput = sideInputStoreNames.contains(storeName);
+    // Use the logged-store-base-directory for change logged stores and sideInput stores, and non-logged-store-base-dir
+    // for non logged stores
+    File storeBaseDir = isDurable || isSideInput ? loggedStoreBaseDirectory : nonLoggedStoreBaseDirectory;
+    File storeDirectory = storageManagerUtil.getTaskStoreDir(storeBaseDir, storeName, taskName,
+        taskModel.getTaskMode());
+    return storeDirectory;
   }
 }
