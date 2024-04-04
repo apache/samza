@@ -401,18 +401,6 @@ public class ContainerStorageManagerUtil {
     return sideInputStores;
   }
 
-  public static Set<String> getNonSideInputNonInMemoryStores(Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
-      Set<String> sideInputStoreNames, Config config) {
-    Set<String> inMemoryStoreNames =
-        ContainerStorageManagerUtil.getInMemoryStoreNames(storageEngineFactories, config);
-    Set<String> nonSideInputStoreNames =
-        storageEngineFactories.keySet().stream().filter(storeName -> !sideInputStoreNames.contains(storeName))
-            .collect(Collectors.toSet());
-    Set<String> storeNames = nonSideInputStoreNames.stream()
-        .filter(s -> !inMemoryStoreNames.contains(s)).collect(Collectors.toSet());
-    return storeNames;
-  }
-
   public static Set<Path> getStoreDirPaths(Config config, Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories,
       Map<String, SystemStream> activeTaskChangelogSystemStreams, Set<String> sideInputStoreNames,
       ContainerModel containerModel, StorageManagerUtil storageManagerUtil, File loggedStoreBaseDirectory,
