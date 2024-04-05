@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -729,6 +730,39 @@ public class TestContainerStorageManager {
     inOrder.verify(taskRestoreManager).restore(true);
     inOrder.verify(blobStoreManager).close(); // close called on blobStoreManager created in ContainerStorageManagerRestoreUtil#restoreDeletedSnapshot
     inOrder.verify(blobStoreManager).close(); // close called on blobStoreManager passed to taskRestoreManager
+  }
+
+  @Test
+  public void testStoreDirectoriesInitialized() {
+    String sideInputStore = "sideInputStore";
+    String inMemoryStore = "inMemoryStore";
+    String regularStore = "regularStore";
+    Map<String, String> storeFactories = new HashMap<>();
+    storeFactories.put(String.format("stores.%s.side.inputs.processor.factory", sideInputStore), "sideinputfactory");
+    storeFactories.put(String.format("stores.%s.factory", regularStore), "regularstorefactory");
+    storeFactories.put(String.format("stores.%s.factory", inMemoryStore),
+        "org.apache.samza.storage.kv.inmemory.InMemoryKeyValueStorageEngineFactory");
+    Map<String, String> configMap = new HashMap<>(storeFactories);
+    Config config = new MapConfig(configMap);
+    Map<String, StorageEngineFactory<Object, Object>> storageEngineFactories = new HashMap<>();
+    storageEngineFactories.put(sideInputStore, (StorageEngineFactory<Object, Object>) mock(StorageEngineFactory.class));
+    storageEngineFactories.put(inMemoryStore, (StorageEngineFactory<Object, Object>) mock(StorageEngineFactory.class));
+    storageEngineFactories.put(regularStore, (StorageEngineFactory<Object, Object>) mock(StorageEngineFactory.class));
+
+    Map<String, SystemStream> activeTaskChangelogSystemStreams = new HashMap<>();
+    activeTaskChangelogSystemStreams.put(regularStore, new SystemStream("kafka", "changelog"));
+    Set<String> sideInputStoreNames = new HashSet<>();
+    sideInputStoreNames.add(sideInputStore);
+    ContainerModel containerModel = mock(ContainerModel.class);
+    when(containerModel.getTasks())
+        .thenReturn(ImmutableMap.of(new TaskName("task"),
+            new TaskModel(new TaskName("task"), Collections.emptySet(), new Partition(1))));
+
+    Set<Path> storeDirPaths = ContainerStorageManagerUtil.getStoreDirPaths(config, storageEngineFactories,
+        activeTaskChangelogSystemStreams, sideInputStoreNames, containerModel, new StorageManagerUtil(),
+        new File("/tmp"), new File("/tmp2"));
+
+    assertEquals(3, storeDirPaths.size());
   }
 
   @Test

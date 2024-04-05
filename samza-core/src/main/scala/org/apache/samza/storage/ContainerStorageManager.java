@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -178,12 +177,16 @@ public class ContainerStorageManager {
           loggedStoreBaseDirectory);
     }
 
-    this.storeDirectoryPaths = new HashSet<>();
+    // Note: The store directory paths are used by SamzaContainer to add a metric to watch the disk space usage
+    // of the store directories. The stores itself does not need to be created but the store directory paths need to be
+    // set to be able to monitor them, once they're created and in use.
+    this.storeDirectoryPaths = ContainerStorageManagerUtil.getStoreDirPaths(config, storageEngineFactories,
+        activeTaskChangelogSystemStreams, sideInputStoreNames, containerModel, storageManagerUtil,
+        loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory);
 
     this.inMemoryStores = ContainerStorageManagerUtil.createInMemoryStores(
-        activeTaskChangelogSystemStreams, storageEngineFactories, sideInputStoreNames,
-        storeDirectoryPaths, containerModel, jobContext, containerContext,
-        taskInstanceMetrics, taskInstanceCollectors, serdes, storageManagerUtil,
+        activeTaskChangelogSystemStreams, storageEngineFactories, sideInputStoreNames, containerModel, jobContext,
+        containerContext, taskInstanceMetrics, taskInstanceCollectors, serdes, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config);
 
     // Refactor Note (prateekm): in previous version, there's a subtle difference between 'this.changelogSystemStreams'
@@ -226,8 +229,7 @@ public class ContainerStorageManager {
     this.sideInputsManager = new SideInputsManager(
         sideInputSystemStreams, systemFactories,
         changelogSystemStreams, activeTaskChangelogSystemStreams,
-        storageEngineFactories, storeDirectoryPaths,
-        containerModel, jobContext, containerContext,
+        storageEngineFactories, containerModel, jobContext, containerContext,
         samzaContainerMetrics, taskInstanceMetrics, taskInstanceCollectors,
         streamMetadataCache, systemAdmins, serdeManager, serdes, storageManagerUtil,
         loggedStoreBaseDirectory, nonLoggedStoreBaseDirectory, config, clock);
@@ -339,8 +341,7 @@ public class ContainerStorageManager {
         .filter(s -> !inMemoryStoreNames.contains(s)).collect(Collectors.toSet());
     this.taskStores = ContainerStorageManagerUtil.createTaskStores(
         storesToCreate, this.storageEngineFactories, this.sideInputStoreNames,
-        this.activeTaskChangelogSystemStreams, this.storeDirectoryPaths,
-        this.containerModel, this.jobContext, this.containerContext,
+        this.activeTaskChangelogSystemStreams, this.containerModel, this.jobContext, this.containerContext,
         this.serdes, this.taskInstanceMetrics, this.taskInstanceCollectors, this.storageManagerUtil,
         this.loggedStoreBaseDirectory, this.nonLoggedStoreBaseDirectory, this.config);
 
