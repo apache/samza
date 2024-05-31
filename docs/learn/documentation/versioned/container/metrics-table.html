@@ -368,6 +368,11 @@
         <td>Current CPU usage of the all processes in the whole system as a percentage from 0 to 100. The percentage represents the proportion of executed ticks by all processes to the total ticks across all CPUs. A negative number indicates the value was not available from the operating system. For more detail, see the JavaDoc for com.sun.management.OperatingSystemMXBean.</td>
     </tr>
     <tr>
+        <td>cpu-throttle-ratio</td>
+        <td>This reports if Linux Control Groups are throttling the Samza container.  Returned values are a percentage that range from 0 to 1, where 0 represents not being throttled.  Negative number indicate the control group values were not available from the operating system.</td>
+    </tr>
+
+    <tr>
         <td>open-file-descriptor-count</td>
         <td>Current number of open file descriptors</td>
     </tr>

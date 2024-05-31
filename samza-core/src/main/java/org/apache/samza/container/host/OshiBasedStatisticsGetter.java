@@ -68,6 +68,11 @@ public class OshiBasedStatisticsGetter implements SystemStatisticsGetter {
   }
 
   @Override
+  public LinuxCgroupStatistics getProcessCgroupStatistics() {
+    throw new UnsupportedOperationException("Not implemented");
+  }
+
+  @Override
   public ProcessCPUStatistics getProcessCPUStatistics() {
     try {
       final List<OSProcess> currentProcessAndChildProcesses = getCurrentProcessAndChildProcesses();

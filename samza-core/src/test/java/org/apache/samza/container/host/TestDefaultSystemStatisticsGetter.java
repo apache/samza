@@ -33,13 +33,16 @@ public class TestDefaultSystemStatisticsGetter {
   @Mock
   private PosixCommandBasedStatisticsGetter posixCommandBasedStatisticsGetter;
 
+  @Mock
+  private LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter;
+
   private DefaultSystemStatisticsGetter defaultSystemStatisticsGetter;
 
   @Before
   public void setup() {
     MockitoAnnotations.initMocks(this);
     this.defaultSystemStatisticsGetter =
-        new DefaultSystemStatisticsGetter(oshiBasedStatisticsGetter, posixCommandBasedStatisticsGetter);
+        new DefaultSystemStatisticsGetter(oshiBasedStatisticsGetter, posixCommandBasedStatisticsGetter, linuxCgroupStatisticsGetter);
   }
 
   @Test
@@ -52,5 +55,11 @@ public class TestDefaultSystemStatisticsGetter {
   public void testGetProcessCPUStatistics() {
     defaultSystemStatisticsGetter.getProcessCPUStatistics();
     verify(oshiBasedStatisticsGetter).getProcessCPUStatistics();
+  }
+
+  @Test
+  public void testGetProcessCgroupStatistics() {
+    defaultSystemStatisticsGetter.getProcessCgroupStatistics();
+    verify(linuxCgroupStatisticsGetter).getProcessCgroupStatistics();
   }
 }
