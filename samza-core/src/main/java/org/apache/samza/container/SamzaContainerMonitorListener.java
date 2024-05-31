@@ -23,6 +23,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.ClusterManagerConfig;
 import org.apache.samza.config.Config;
+import org.apache.samza.container.host.LinuxCgroupStatistics;
 import org.apache.samza.container.host.ProcessCPUStatistics;
 import org.apache.samza.container.host.SystemMemoryStatistics;
 import org.apache.samza.container.host.SystemStatistics;
@@ -72,5 +73,14 @@ public class SamzaContainerMonitorListener implements SystemStatisticsMonitor.Li
       LOGGER.debug("Container active threads count: " + containerActiveThreads);
       containerMetrics.containerActiveThreads().set(containerActiveThreads);
     }
+
+    // Update CGroup related metrics
+    LinuxCgroupStatistics cpuThrottle = sample.getCgroupStatistics();
+    if (Objects.nonNull(cpuThrottle)) {
+      double cpuThrottleRatio = cpuThrottle.getCgroupCpuThrottleRatio();
+      LOGGER.debug("Container CGROUP Throttle Ratio: " + cpuThrottleRatio);
+      containerMetrics.cpuThrottleRatio().set(cpuThrottleRatio);
+    }
+
   }
 }

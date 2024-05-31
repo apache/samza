@@ -120,13 +120,15 @@ public class StatisticsMonitorImpl implements SystemStatisticsMonitor {
   private void sampleStatistics() {
     SystemMemoryStatistics memoryStatistics = null;
     ProcessCPUStatistics cpuStatistics = null;
+    LinuxCgroupStatistics cgroupStatistics = null;
     try {
       memoryStatistics = statisticsGetter.getSystemMemoryStatistics();
       cpuStatistics = statisticsGetter.getProcessCPUStatistics();
+      cgroupStatistics = statisticsGetter.getProcessCgroupStatistics();
     } catch (Throwable e) {
       LOG.error("Error during obtaining statistics: ", e);
     }
-    SystemStatistics systemStatistics = new SystemStatistics(cpuStatistics, memoryStatistics);
+    SystemStatistics systemStatistics = new SystemStatistics(cpuStatistics, memoryStatistics, cgroupStatistics);
     for (Listener listener : listenerSet.keySet()) {
       try {
         // catch all exceptions to shield one listener from exceptions thrown by others.

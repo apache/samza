@@ -16,7 +16,6 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.samza.container.host;
 
 import java.util.Objects;
@@ -29,14 +28,14 @@ public class LinuxCgroupStatistics {
   /**
    * The Cgroup CPU throttle Ratio for the Yarn container's control group, defined as nr_throttled over nr_periods.
    */
-  private final double cpuThrottleRatio;
+  private final double cgroupCpuThrottleRatio;
 
-  LinuxCgroupStatistics(double cpuThrottleRatio) {
-    this.cpuThrottleRatio = cpuThrottleRatio;
+  LinuxCgroupStatistics(double cgroupCpuThrottleRatio) {
+    this.cgroupCpuThrottleRatio = cgroupCpuThrottleRatio;
   }
 
-  public double getCpuThrottleRatio() {
-    return cpuThrottleRatio;
+  public double getCgroupCpuThrottleRatio() {
+    return cgroupCpuThrottleRatio;
   }
 
   @Override
@@ -48,17 +47,17 @@ public class LinuxCgroupStatistics {
       return false;
     }
     org.apache.samza.container.host.LinuxCgroupStatistics that = (org.apache.samza.container.host.LinuxCgroupStatistics) o;
-    return Double.compare(that.cpuThrottleRatio, cpuThrottleRatio) == 0;
+    return Double.compare(that.cgroupCpuThrottleRatio, cgroupCpuThrottleRatio) == 0;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(cpuThrottleRatio);
+    return Objects.hash(cgroupCpuThrottleRatio);
   }
 
   @Override
   public String toString() {
-    return "LinuxCgroupStatistics{" + "cpuThrottleRatio=" + cpuThrottleRatio + '}';
+    return "LinuxCgroupStatistics{" + "cpuThrottleRatio=" + cgroupCpuThrottleRatio + '}';
   }
 }
 

@@ -24,9 +24,6 @@ import org.slf4j.LoggerFactory;
 
 public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
   private static final Logger LOG = LoggerFactory.getLogger(LinuxCgroupStatisticsGetter.class.getName());
-  LinuxCgroupStatisticsGetter() {
-    LOG.info("Place Holder Constructor");
-  }
 
   @Override
   public SystemMemoryStatistics getSystemMemoryStatistics() {
@@ -40,7 +37,7 @@ public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
 
   @Override
   public LinuxCgroupStatistics getProcessCgroupStatistics() {
-    // TODO: Fix place holder while we figure this out
+    // TODO: create place holder while we figure this out
     return new LinuxCgroupStatistics(0.5);
   }
 

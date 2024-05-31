@@ -25,7 +25,7 @@ import static org.junit.Assert.*;
 public class TestLinuxCgroupStatisticsGetter {
 // TODO add tests
   @Test
-  void placeHolderTest() {
+  public void placeHolderTest() {
     assertTrue(true);
   }
 }
