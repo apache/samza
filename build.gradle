@@ -240,6 +240,11 @@ project(":samza-core_$scalaSuffix") {
     compile "com.github.oshi:oshi-core:$oshiVersion"
     compile "net.java.dev.jna:jna:$jnaVersion"
     compile "net.java.dev.jna:jna-platform:$jnaVersion"
+    compile("org.apache.hadoop:hadoop-common:$yarnVersion") {
+      exclude module: 'servlet-api'
+      // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
+      exclude module: 'zookeeper'
+    }
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"

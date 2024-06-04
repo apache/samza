@@ -22,10 +22,27 @@ package org.apache.samza.container.host;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+
 public class TestLinuxCgroupStatisticsGetter {
 // TODO add tests
   @Test
   public void placeHolderTest() {
     assertTrue(true);
   }
+
+
+
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testGetSystemMemoryStatistics() {
+    LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter = new LinuxCgroupStatisticsGetter();
+    linuxCgroupStatisticsGetter.getSystemMemoryStatistics();
+  }
+
+  @Test(expected = UnsupportedOperationException.class)
+  public void testGetProcessCPUStatistics() {
+    LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter = new LinuxCgroupStatisticsGetter();
+    linuxCgroupStatisticsGetter.getProcessCPUStatistics();
+  }
+
 }
