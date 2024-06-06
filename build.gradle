@@ -245,6 +245,7 @@ project(":samza-core_$scalaSuffix") {
       // Exclude because YARN's 3.4.5 ZK version is incompatbile with Kafka's 3.3.4.
       exclude module: 'zookeeper'
     }
+    testCompile "com.github.stefanbirkner:system-rules:$systemRulesVersion"
     testCompile project(":samza-api").sourceSets.test.output
     testCompile "junit:junit:$junitVersion"
     testCompile "org.mockito:mockito-core:$mockitoVersion"
