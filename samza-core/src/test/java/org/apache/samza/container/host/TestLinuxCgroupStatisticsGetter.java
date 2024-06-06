@@ -93,6 +93,27 @@ public class TestLinuxCgroupStatisticsGetter {
 
   }
 
+  @Test
+  public void testRunTimeIsNotHadoop() {
+    // Validate that standalone applications return the expected sentinel of -2.0.
+    environmentVariables.clear("CONTAINER_ID");
+    LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter = new LinuxCgroupStatisticsGetter();
+    LinuxCgroupStatistics cpuStat = linuxCgroupStatisticsGetter.getProcessCgroupStatistics();
+    double throttleRatio = cpuStat.getCgroupCpuThrottleRatio();
+    assertEquals(throttleRatio, -2.0, 0.05);
+  }
+
+  @Test
+  public void testExceptionReturnsNegativeOne() {
+    // Validate that exceptions return a sentinel of -1.0.
+    environmentVariables.set("CONTAINER_ID", "container_abc_123");
+    environmentVariables.set("HADOOP_CONF_DIR", "/fake/path/to/non_existent/cgroup/directory");
+    LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter = new LinuxCgroupStatisticsGetter();
+    LinuxCgroupStatistics cpuStat = linuxCgroupStatisticsGetter.getProcessCgroupStatistics();
+    double throttleRatio = cpuStat.getCgroupCpuThrottleRatio();
+    assertEquals(throttleRatio, -1.0, 0.05);
+  }
+
   @Test(expected = UnsupportedOperationException.class)
   public void testGetSystemMemoryStatistics() {
     LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter = new LinuxCgroupStatisticsGetter();

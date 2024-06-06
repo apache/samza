@@ -19,6 +19,7 @@
 
 package org.apache.samza.container.host;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.Properties;
 import java.io.FileReader;
 import java.nio.file.Files;
@@ -31,7 +32,7 @@ import java.net.MalformedURLException;
 import java.util.Optional;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-
+import java.io.File;
 
 public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
   private static final Logger LOG = LoggerFactory.getLogger(LinuxCgroupStatisticsGetter.class.getName());
@@ -76,6 +77,10 @@ public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
   }
 
   private double getCPUStat() {
+    if (this.containerID.equals("NOT_DETECTED")) {
+      // return a sentinel value to signal this is not running on Hadoop
+      return -2.0;
+    }
     String[] controllers = {"cpu", "cpuacct", "cpu,cpuacct" };
     double cpuThrottledRatio = -1.0;
     String cpuStatPath;
@@ -93,7 +98,9 @@ public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
           cpuThrottledRatio = (double) nrThrottled / nrPeriod;
           break;
         } catch (IOException | RuntimeException e) {
-          throw new RuntimeException("Caught exception reading cpu.stat file: ", e);
+          LOG.debug("Caught exception reading cpu.stat file: ", e.getMessage());
+          // return a sentinel value to signal an exception occurred.
+          return -1.0;
         }
       }
     }
@@ -108,11 +115,15 @@ public class LinuxCgroupStatisticsGetter implements SystemStatisticsGetter {
   private Configuration getHadoopConf(String hConfDir) {
     Configuration hConf = new Configuration();
     try {
-      String yarnSiteURI = "file://" + hConfDir + "/yarn-site.xml";
-      LOG.debug("yarn-site.xml URI: " + yarnSiteURI);
-      URL yarnSiteUrl = URI.create(yarnSiteURI).toURL();
+      URI yarnSiteURI = new URI("file://" + hConfDir + "/yarn-site.xml");
+      LOG.debug("yarn-site.xml URI: " + yarnSiteURI.toString());
+      File yarnSiteXml = new File(yarnSiteURI);
+      if  (!yarnSiteXml.isFile() || !yarnSiteXml.canRead()) {
+        throw new RuntimeException("Unable to access yarn-site.xml: " + yarnSiteXml.toString());
+      }
+      URL yarnSiteUrl = yarnSiteURI.toURL();
       hConf.addResource(yarnSiteUrl);
-    } catch (MalformedURLException | IllegalArgumentException e) {
+    } catch (MalformedURLException | URISyntaxException | RuntimeException e) {
       LOG.error("Unable to construct URL to yarn-site.xml: " + e.getMessage());
     }
     return hConf;
