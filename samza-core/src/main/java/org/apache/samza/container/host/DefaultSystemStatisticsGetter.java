@@ -22,22 +22,28 @@ import com.google.common.annotations.VisibleForTesting;
 
 
 /**
- * An default implementation of {@link SystemStatisticsGetter} that relies on {@link PosixCommandBasedStatisticsGetter}
- * and {@link OshiBasedStatisticsGetter} implementations
+ * An default implementation of {@link SystemStatisticsGetter} that relies on {@link PosixCommandBasedStatisticsGetter},
+ * {@link OshiBasedStatisticsGetter}, and {@link LinuxCgroupStatisticsGetter}, implementations.
  */
 public class DefaultSystemStatisticsGetter implements SystemStatisticsGetter {
   private final OshiBasedStatisticsGetter oshiBasedStatisticsGetter;
   private final PosixCommandBasedStatisticsGetter posixCommandBasedStatisticsGetter;
+  private final LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter;
+
 
   public DefaultSystemStatisticsGetter() {
-    this(new OshiBasedStatisticsGetter(), new PosixCommandBasedStatisticsGetter());
+    this(new OshiBasedStatisticsGetter(), new PosixCommandBasedStatisticsGetter(), new LinuxCgroupStatisticsGetter());
   }
 
   @VisibleForTesting
-  DefaultSystemStatisticsGetter(OshiBasedStatisticsGetter oshiBasedStatisticsGetter,
-      PosixCommandBasedStatisticsGetter posixCommandBasedStatisticsGetter) {
+  DefaultSystemStatisticsGetter(
+      OshiBasedStatisticsGetter oshiBasedStatisticsGetter,
+      PosixCommandBasedStatisticsGetter posixCommandBasedStatisticsGetter,
+      LinuxCgroupStatisticsGetter linuxCgroupStatisticsGetter
+  ) {
     this.oshiBasedStatisticsGetter = oshiBasedStatisticsGetter;
     this.posixCommandBasedStatisticsGetter = posixCommandBasedStatisticsGetter;
+    this.linuxCgroupStatisticsGetter = linuxCgroupStatisticsGetter;
   }
 
   @Override
@@ -48,5 +54,10 @@ public class DefaultSystemStatisticsGetter implements SystemStatisticsGetter {
   @Override
   public ProcessCPUStatistics getProcessCPUStatistics() {
     return oshiBasedStatisticsGetter.getProcessCPUStatistics();
+  }
+
+  @Override
+  public LinuxCgroupStatistics getProcessCgroupStatistics() {
+    return linuxCgroupStatisticsGetter.getProcessCgroupStatistics();
   }
 }

@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.MapConfig;
+import org.apache.samza.container.host.LinuxCgroupStatistics;
 import org.apache.samza.container.host.ProcessCPUStatistics;
 import org.apache.samza.container.host.SystemMemoryStatistics;
 import org.apache.samza.container.host.SystemStatistics;
@@ -43,13 +44,15 @@ public class TestSamzaContainerMonitorListener {
   private SystemMemoryStatistics memorySample;
   @Mock
   private ThreadPoolExecutor taskThreadPool;
+  @Mock
+  private LinuxCgroupStatistics cgroupSample;
 
   private SystemStatistics sample;
-
   private final double cpuUsage = 30.0;
   private final int containerMemoryMb = 2048;
   private final long physicalMemoryBytes = 1024000L;
   private final int activeThreadCount = 2;
+  private final double throttleRatio = 0.53;
 
   private final Config config =
       new MapConfig(Collections.singletonMap("cluster-manager.container.memory.mb", String.valueOf(containerMemoryMb)));
@@ -64,8 +67,8 @@ public class TestSamzaContainerMonitorListener {
     when(cpuSample.getProcessCPUUsagePercentage()).thenReturn(cpuUsage);
     when(memorySample.getPhysicalMemoryBytes()).thenReturn(physicalMemoryBytes);
     when(taskThreadPool.getActiveCount()).thenReturn(activeThreadCount);
-
-    sample = new SystemStatistics(cpuSample, memorySample);
+    when(cgroupSample.getCgroupCpuThrottleRatio()).thenReturn(throttleRatio);
+    sample = new SystemStatistics(cpuSample, memorySample, cgroupSample);
     samzaContainerMonitorListener = new SamzaContainerMonitorListener(config, containerMetrics, taskThreadPool);
   }
 
@@ -77,5 +80,6 @@ public class TestSamzaContainerMonitorListener {
     assertEquals(physicalMemoryMb, containerMetrics.physicalMemoryMb().getValue());
     assertEquals(physicalMemoryMb / containerMemoryMb, containerMetrics.physicalMemoryUtilization().getValue());
     assertEquals(activeThreadCount, containerMetrics.containerActiveThreads().getValue());
+    assertEquals(throttleRatio, containerMetrics.cpuThrottleRatio().getValue());
   }
 }

@@ -38,4 +38,12 @@ public interface SystemStatisticsGetter {
    * @return {@link ProcessCPUStatistics} for the Samza container process
    */
   ProcessCPUStatistics getProcessCPUStatistics();
+
+  /**
+   * Returns the {@link LinuxCgroupStatistics} for the current Samza container process(includes its child processes). A
+   * 'null' value is returned if no statistics are available.
+   *
+   * @return {@link LinuxCgroupStatistics} for the Samza container process
+   */
+  LinuxCgroupStatistics getProcessCgroupStatistics();
 }

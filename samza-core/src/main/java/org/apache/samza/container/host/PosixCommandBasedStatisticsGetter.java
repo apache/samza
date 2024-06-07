@@ -90,4 +90,8 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
     throw new UnsupportedOperationException(
         "No appropriate Posix command available for getting recent CPU usage information. For example, the CPU information exposed by ps command 'ps -o %cpu= -p <PID>' represents the percentage of time spent running during the entire lifetime of a process not for the recent CPU usage");
   }
+  @Override
+  public LinuxCgroupStatistics getProcessCgroupStatistics() {
+    throw new UnsupportedOperationException("Not implemented");
+  }
 }

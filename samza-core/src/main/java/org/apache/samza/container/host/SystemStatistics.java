@@ -28,10 +28,12 @@ public class SystemStatistics {
 
   private final ProcessCPUStatistics cpuStatistics;
   private final SystemMemoryStatistics memoryStatistics;
+  private final LinuxCgroupStatistics cgroupStatistics;
 
-  public SystemStatistics(ProcessCPUStatistics cpuStatistics, SystemMemoryStatistics memoryStatistics) {
+  public SystemStatistics(ProcessCPUStatistics cpuStatistics, SystemMemoryStatistics memoryStatistics, LinuxCgroupStatistics cgroupStatistics) {
     this.cpuStatistics = cpuStatistics;
     this.memoryStatistics = memoryStatistics;
+    this.cgroupStatistics = cgroupStatistics;
   }
 
   public ProcessCPUStatistics getCpuStatistics() {
@@ -40,6 +42,10 @@ public class SystemStatistics {
 
   public SystemMemoryStatistics getMemoryStatistics() {
     return memoryStatistics;
+  }
+
+  public LinuxCgroupStatistics getCgroupStatistics() {
+    return cgroupStatistics;
   }
 
   @Override
