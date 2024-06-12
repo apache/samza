@@ -27,7 +27,8 @@ import com.azure.storage.blob.BlobServiceAsyncClient;
  */
 public interface BlobClientBuilder {
   /**
-   * create a client for ABS (uploads)
+   * Create a client for uploading to Azure Blob Storage
+   * @return New instance of {@link BlobServiceAsyncClient}
    */
   BlobServiceAsyncClient getBlobServiceAsyncClient();
 }

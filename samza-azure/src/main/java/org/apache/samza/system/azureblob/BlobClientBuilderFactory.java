@@ -25,9 +25,10 @@ package org.apache.samza.system.azureblob;
 public interface BlobClientBuilderFactory {
   /**
    * Create a new instance of {@link BlobClientBuilder}
-   * @param systemName Name of the system
-   * @param azureUrlFormat Azure URL format
-   * @param azureBlobConfig Azure Blob configuration
+   * @param systemName Name of the system for which the blob client builder is being created
+   * @param azureUrlFormat The format of the Azure URL, which should conform to Azure's URL formatting requirements.
+   * @param azureBlobConfig The configuration settings for Azure Blob, encapsulated in an {@link AzureBlobConfig} object.
+   *                        This includes metadata details for Azure Blob configs.
    * @return New instance of {@link BlobClientBuilder}
    */
   BlobClientBuilder getBlobClientBuilder(String systemName, String azureUrlFormat, AzureBlobConfig azureBlobConfig);
