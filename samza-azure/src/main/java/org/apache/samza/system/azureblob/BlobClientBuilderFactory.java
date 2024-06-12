@@ -19,16 +19,16 @@
 package org.apache.samza.system.azureblob;
 
 /**
- * Constructs a new instance of {@link AzureBlobClientBuilder}
- * from factory provided by configuration.
+ * Constructs a new instance of type {@link BlobClientBuilder}.
+ * Implementation controls construction of underlying instance.
  */
 public interface BlobClientBuilderFactory {
   /**
-   * Create a new instance of {@link AzureBlobClientBuilder}
+   * Create a new instance of {@link BlobClientBuilder}
    * @param systemName Name of the system
    * @param azureUrlFormat Azure URL format
    * @param azureBlobConfig Azure Blob configuration
-   * @return New instance of {@link AzureBlobClientBuilder}
+   * @return New instance of {@link BlobClientBuilder}
    */
   BlobClientBuilder getBlobClientBuilder(String systemName, String azureUrlFormat, AzureBlobConfig azureBlobConfig);
 }
