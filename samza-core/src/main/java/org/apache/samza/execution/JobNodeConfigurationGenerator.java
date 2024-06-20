@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import joptsimple.internal.Strings;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.samza.SamzaException;
 import org.apache.samza.config.ApplicationConfig;
@@ -167,7 +168,23 @@ import org.slf4j.LoggerFactory;
 
     LOG.info("Job {} has generated configs {}", jobNode.getJobNameAndId(), generatedConfig);
 
-    return new JobConfig(mergeConfig(originalConfig, generatedConfig));
+    // Merge generated task.inputs and original task.inputs together as new task.inputs
+    Map<String, String> newConfigs = mergeInputs(originalConfig, inputs);
+
+    return new JobConfig(mergeConfig(newConfigs, generatedConfig));
+  }
+
+  private Map<String, String> mergeInputs(Config originalConfig, Set<String> inputs) {
+    Map<String, String> mergedConfigs = new HashMap<>(originalConfig);
+    if (inputs.isEmpty()) {
+      return mergedConfigs;
+    }
+    String originalInputs = originalConfig.get(TaskConfig.INPUT_STREAMS);
+    if (!Strings.isNullOrEmpty(originalInputs)) {
+      inputs.add(originalInputs);
+    }
+    mergedConfigs.put(TaskConfig.INPUT_STREAMS, Joiner.on(',').join(inputs));
+    return mergedConfigs;
   }
 
   private Map<String, TableDescriptor> getReachableTables(Collection<OperatorSpec> reachableOperators, JobNode jobNode) {
