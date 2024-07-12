@@ -572,9 +572,10 @@ public class ContainerProcessManager implements ClusterResourceManager.Callback 
 
       // if fail count is (1 initial failure + max retries) then fail job.
       if (currentFailCount > retryCount) {
-        LOG.error("Processor ID: {} (current Container ID: {}) has failed {} times, with last failure {} ms ago. " +
-                "This is greater than retry count of {} and window of {} ms, ",
-            processorId, containerId, currentFailCount, durationSinceLastRetryMs, retryCount, retryWindowMs);
+        LOG.error("Processor ID: {} (current Container ID: {}) has failed {} times. "
+                + "This is greater that the retry count of {}."
+                + "The failure occurred {} ms after the previous one, which is less than the retry window of {} ms.",
+            processorId, containerId, currentFailCount, retryCount, durationSinceLastRetryMs, retryWindowMs);
 
         // We have too many failures, and we're within the window
         // boundary, so reset shut down the app master.
