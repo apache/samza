@@ -28,6 +28,8 @@ cd $base_dir
 base_dir=`pwd`
 cd $home_dir
 
+echo "Current time: $(date '+%Y-%m-%d %H:%M:%S')"
+
 echo home_dir=$home_dir
 echo "framework base (location of this script). base_dir=$base_dir"
 
