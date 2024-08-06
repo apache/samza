@@ -26,7 +26,7 @@ title: Apache Beam API
 
 ### Introduction
 
-Apache Beam brings an easy-to-use but powerful API and model for state-of-art stream and batch data processing with portability across a variety of languages. The Beam API and model has the following characteristics:
+Apache Beam brings an easy-to-usen but powerful API and model for state-of-art stream and batch data processing with portability across a variety of languages. The Beam API and model has the following characteristics:
 
 - *Simple constructs, powerful semantics*: the whole beam API can be simply described by a `Pipeline` object, which captures all your data processing steps from input to output. Beam SDK supports over [20 data IOs](https://beam.apache.org/documentation/io/built-in/), and data transformations from simple [Map](https://beam.apache.org/releases/javadoc/2.11.0/org/apache/beam/sdk/transforms/MapElements.html) to complex [Combines and Joins](https://beam.apache.org/releases/javadoc/2.11.0/index.html?org/apache/beam/sdk/transforms/Combine.html).
 
