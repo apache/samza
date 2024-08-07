@@ -180,7 +180,7 @@ public class RocksDbOptionsHelper {
     }
 
     if (storeConfig.containsKey(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER)) {
-      options.setTargetFileSizeBase(storeConfig.getLong(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER));
+      options.setTargetFileSizeMultiplier(storeConfig.getInt(ROCKSDB_COMPACTION_TARGET_FILE_SIZE_MULTIPLIER));
     }
 
     if (storeConfig.containsKey(ROCKSDB_MAX_BACKGROUND_JOBS)) {
