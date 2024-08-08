@@ -39,7 +39,7 @@ import java.util.Locale;
  * configs given to the SystemProducer - such as which authentication method to use, whether to use proxy to authenticate,
  * and so on.
  */
-public final class AzureBlobClientBuilder {
+public final class AzureBlobClientBuilder implements BlobClientBuilder{
   private final String systemName;
   private final String azureUrlFormat;
   private final AzureBlobConfig azureBlobConfig;
