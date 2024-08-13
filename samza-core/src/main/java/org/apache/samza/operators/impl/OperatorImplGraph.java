@@ -23,6 +23,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import org.apache.samza.config.Config;
 import org.apache.samza.config.StreamConfig;
+import org.apache.samza.config.TaskConfig;
 import org.apache.samza.context.Context;
 import org.apache.samza.context.InternalTaskContext;
 import org.apache.samza.job.model.JobModel;
@@ -100,7 +101,8 @@ public class OperatorImplGraph {
    */
   public OperatorImplGraph(OperatorSpecGraph specGraph, Context context, Clock clock) {
     this.clock = clock;
-    StreamConfig streamConfig = new StreamConfig(context.getJobContext().getConfig());
+    Config config = context.getJobContext().getConfig();
+    StreamConfig streamConfig = new StreamConfig(config);
     this.internalTaskContext = new InternalTaskContext(context);
     Map<SystemStream, Integer> producerTaskCounts =
         hasIntermediateStreams(specGraph)
@@ -117,9 +119,11 @@ public class OperatorImplGraph {
         new EndOfStreamStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts));
 
     // set states for watermark; don't include side inputs (see SAMZA-2303)
+    TaskConfig taskConfig = new TaskConfig(config);
     internalTaskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts,
-            context.getContainerContext().getContainerMetricsRegistry()));
+            context.getContainerContext().getContainerMetricsRegistry(),
+            taskConfig.getWatermarkIdleMs()));
 
     // set states for drain; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(DrainStates.class.getName(),

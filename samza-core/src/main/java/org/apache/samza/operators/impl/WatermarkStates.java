@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.LongSupplier;
 
 import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.SystemStream;
@@ -49,13 +50,19 @@ class WatermarkStates {
   private final static class WatermarkState {
     private final int expectedTotal;
     private final Map<String, Long> timestamps = new HashMap<>();
+    private final Map<String, Long> lastUpdateTime = new HashMap<>();
+    private final long watermarkIdleTime;
+    private final LongSupplier systemTimeFunc;
     private volatile long watermarkTime = WATERMARK_NOT_EXIST;
 
-    WatermarkState(int expectedTotal) {
+    WatermarkState(int expectedTotal, long watermarkIdleTime, LongSupplier systemTimeFunc) {
       this.expectedTotal = expectedTotal;
+      this.watermarkIdleTime = watermarkIdleTime;
+      this.systemTimeFunc = systemTimeFunc;
     }
 
     synchronized void update(long timestamp, String taskName) {
+      long currentTime = systemTimeFunc.getAsLong();
       if (taskName != null) {
         Long ts = timestamps.get(taskName);
         if (ts != null && ts > timestamp) {
@@ -63,6 +70,7 @@ class WatermarkStates {
               timestamp, ts, taskName));
         } else {
           timestamps.put(taskName, timestamp);
+          lastUpdateTime.put(taskName, currentTime);
         }
       }
 
@@ -72,7 +80,11 @@ class WatermarkStates {
       } else if (timestamps.size() == expectedTotal) {
         // For any intermediate streams, the expectedTotal is the upstream task count.
         // Check whether we got all the watermarks, and set the watermark to be the min.
-        Optional<Long> min = timestamps.values().stream().min(Long::compare);
+        // Exclude the tasks that have been idle in watermark emission.
+        Optional<Long> min = timestamps.entrySet().stream()
+                .filter(t -> currentTime - lastUpdateTime.get(t.getKey()) < watermarkIdleTime)
+                .map(Map.Entry::getValue)
+                .min(Long::compare);
         watermarkTime = min.orElse(timestamp);
       }
     }
@@ -85,17 +97,29 @@ class WatermarkStates {
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
   private final List<SystemStreamPartition> intermediateSsps;
   private final WatermarkMetrics watermarkMetrics;
+  private final LongSupplier systemTimeFunc;
 
+  WatermarkStates(
+          Set<SystemStreamPartition> ssps,
+          Map<SystemStream, Integer> producerTaskCounts,
+          MetricsRegistry metricsRegistry,
+          long watermarkIdleTime) {
+    this(ssps, producerTaskCounts, metricsRegistry, watermarkIdleTime, System::currentTimeMillis);
+  }
+
+  //Internal: test-only
   WatermarkStates(
       Set<SystemStreamPartition> ssps,
       Map<SystemStream, Integer> producerTaskCounts,
-      MetricsRegistry metricsRegistry) {
+      MetricsRegistry metricsRegistry,
+      long watermarkIdleTime,
+      LongSupplier systemTimeFunc) {
     final Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     final List<SystemStreamPartition> intSsps = new ArrayList<>();
 
     ssps.forEach(ssp -> {
       final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
-      states.put(ssp, new WatermarkState(producerCount));
+      states.put(ssp, new WatermarkState(producerCount, watermarkIdleTime, systemTimeFunc));
       if (producerCount != 0) {
         intSsps.add(ssp);
       }
@@ -103,6 +127,7 @@ class WatermarkStates {
     this.watermarkStates = Collections.unmodifiableMap(states);
     this.watermarkMetrics = new WatermarkMetrics(metricsRegistry);
     this.intermediateSsps = Collections.unmodifiableList(intSsps);
+    this.systemTimeFunc = systemTimeFunc;
   }
 
   /**

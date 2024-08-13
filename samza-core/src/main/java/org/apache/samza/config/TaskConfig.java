@@ -147,6 +147,9 @@ public class TaskConfig extends MapConfig {
       "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
+  public static final String WATERMARK_IDLE_MS = "task.watermark.idle.ms";
+  public static final long DEFAULT_TASK_WATERMARK_IDLE_MS = 600000;
+
   public TaskConfig(Config config) {
     super(config);
   }
@@ -401,5 +404,9 @@ public class TaskConfig extends MapConfig {
 
   public boolean getTransactionalStateRetainExistingState() {
     return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
+  }
+
+  public long getWatermarkIdleMs() {
+    return getLong(WATERMARK_IDLE_MS, DEFAULT_TASK_WATERMARK_IDLE_MS);
   }
 }
