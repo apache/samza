@@ -148,7 +148,7 @@ public class TaskConfig extends MapConfig {
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
   public static final String WATERMARK_IDLE_MS = "task.watermark.idle.ms";
-  public static final long DEFAULT_TASK_WATERMARK_IDLE_MS = 600000;
+  public static final long DEFAULT_TASK_WATERMARK_IDLE_MS = -1L;
 
   public TaskConfig(Config config) {
     super(config);

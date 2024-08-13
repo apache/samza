@@ -40,6 +40,8 @@ import static org.junit.Assert.assertEquals;
 import static org.apache.samza.operators.impl.WatermarkStates.WATERMARK_NOT_EXIST;
 
 public class TestWatermarkStates {
+  static final long TASK_WATERMARK_IDLE_MS = 600000;
+
   SystemStream input;
   SystemStream intermediate;
   Set<SystemStreamPartition> ssps;
@@ -47,6 +49,8 @@ public class TestWatermarkStates {
   SystemStreamPartition intPartition0;
   SystemStreamPartition intPartition1;
   Map<SystemStream, Integer> producerCounts;
+
+
 
   @Before
   public void setup() {
@@ -120,7 +124,7 @@ public class TestWatermarkStates {
   @Test
   public void testIdle() {
     WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
-            TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_MS, new MockSystemTime());
+            TASK_WATERMARK_IDLE_MS, new MockSystemTime());
 
     WatermarkMessage watermarkMessage = new WatermarkMessage(1L, "task 0");
     watermarkStates.update(watermarkMessage, intPartition0);
@@ -153,11 +157,10 @@ public class TestWatermarkStates {
       if (firstTime) {
         firstTime = false;
         // Make the first task idle
-        return System.currentTimeMillis() - TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_MS;
+        return System.currentTimeMillis() - TASK_WATERMARK_IDLE_MS;
       } else {
         return System.currentTimeMillis();
       }
     }
   }
-
 }

@@ -80,11 +80,15 @@ class WatermarkStates {
       } else if (timestamps.size() == expectedTotal) {
         // For any intermediate streams, the expectedTotal is the upstream task count.
         // Check whether we got all the watermarks, and set the watermark to be the min.
-        // Exclude the tasks that have been idle in watermark emission.
-        Optional<Long> min = timestamps.entrySet().stream()
-                .filter(t -> currentTime - lastUpdateTime.get(t.getKey()) < watermarkIdleTime)
-                .map(Map.Entry::getValue)
-                .min(Long::compare);
+        Optional<Long> min;
+        if (watermarkIdleTime <= 0) {
+          min = timestamps.values().stream().min(Long::compare);
+        } else {
+          // Exclude the tasks that have been idle in watermark emission.
+          min = timestamps.entrySet().stream()
+                  .filter(t -> currentTime - lastUpdateTime.get(t.getKey()) < watermarkIdleTime)
+                  .map(Map.Entry::getValue).min(Long::compare);
+        }
         watermarkTime = min.orElse(timestamp);
       }
     }
