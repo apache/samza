@@ -147,8 +147,10 @@ public class TaskConfig extends MapConfig {
       "task.transactional.state.retain.existing.state";
   private static final boolean DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE = true;
 
-  public static final String WATERMARK_IDLE_MS = "task.watermark.idle.ms";
-  public static final long DEFAULT_TASK_WATERMARK_IDLE_MS = -1L;
+  // This config allows excluding the tasks that have been "idle" in generating watermark for the configured time,
+  // so that the watermarks will still be generated from other active tasks.
+  public static final String WATERMARK_IDLE_TIMEOUT_MS = "task.watermark.idle.timeout.ms";
+  public static final long DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS = -1L;
 
   public TaskConfig(Config config) {
     super(config);
@@ -406,7 +408,7 @@ public class TaskConfig extends MapConfig {
     return getBoolean(TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE, DEFAULT_TRANSACTIONAL_STATE_RETAIN_EXISTING_STATE);
   }
 
-  public long getWatermarkIdleMs() {
-    return getLong(WATERMARK_IDLE_MS, DEFAULT_TASK_WATERMARK_IDLE_MS);
+  public long getWatermarkIdleTimeoutMs() {
+    return getLong(WATERMARK_IDLE_TIMEOUT_MS, DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS);
   }
 }

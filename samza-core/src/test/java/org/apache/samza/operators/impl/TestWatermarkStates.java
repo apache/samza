@@ -40,17 +40,15 @@ import static org.junit.Assert.assertEquals;
 import static org.apache.samza.operators.impl.WatermarkStates.WATERMARK_NOT_EXIST;
 
 public class TestWatermarkStates {
-  static final long TASK_WATERMARK_IDLE_MS = 600000;
+  static final long TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS = 600000;
 
-  SystemStream input;
-  SystemStream intermediate;
-  Set<SystemStreamPartition> ssps;
-  SystemStreamPartition inputPartition0;
-  SystemStreamPartition intPartition0;
-  SystemStreamPartition intPartition1;
-  Map<SystemStream, Integer> producerCounts;
-
-
+  private SystemStream input;
+  private SystemStream intermediate;
+  private Set<SystemStreamPartition> ssps;
+  private SystemStreamPartition inputPartition0;
+  private SystemStreamPartition intPartition0;
+  private SystemStreamPartition intPartition1;
+  private Map<SystemStream, Integer> producerCounts;
 
   @Before
   public void setup() {
@@ -69,12 +67,11 @@ public class TestWatermarkStates {
     producerCounts.put(intermediate, 2);
   }
 
-
   @Test
   public void testUpdate() {
     // advance watermark on input to 5
     WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
-            TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_MS);
+            TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS);
     IncomingMessageEnvelope envelope = IncomingMessageEnvelope.buildWatermarkEnvelope(inputPartition0, 5L);
     watermarkStates.update((WatermarkMessage) envelope.getMessage(),
         envelope.getSystemStreamPartition());
@@ -123,22 +120,29 @@ public class TestWatermarkStates {
 
   @Test
   public void testIdle() {
+    MockSystemTime systemTime = new MockSystemTime();
     WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
-            TASK_WATERMARK_IDLE_MS, new MockSystemTime());
+            TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS, systemTime);
 
-    // First wm is marked before the idle time, so it's not counted
+    // First watermark
     WatermarkMessage watermarkMessage = new WatermarkMessage(1L, "task 0");
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), WATERMARK_NOT_EXIST);
     assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
-    // Watermark is computed based on "task 1" since "task 0" passes the idle time
+    // Advance currentTime to pass the idle timeout
+    systemTime.advance(TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS);
+
+    // Watermark is computed based on "task 1" alone since "task 0" passes the idle timeout
     watermarkMessage = new WatermarkMessage(5L, "task 1");
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 5L);
     assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
 
-    // Watermark is computed based on "task 0" since the time already passes the idle threshold
+    // Advance currentTime without exceeding the timeout
+    systemTime.advance(1);
+
+    // Watermark is computed based on "task 0" since the currentTime already passes the idle threshold
     watermarkMessage = new WatermarkMessage(6L, "task 0");
     watermarkStates.update(watermarkMessage, intPartition1);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition1), 6L);
@@ -151,43 +155,44 @@ public class TestWatermarkStates {
     // verify we got a watermark (min) for int stream
     assertEquals(watermarkStates.getWatermark(intermediate), 5L);
 
+    // Advance currentTime without exceeding the timeout
+    systemTime.advance(1);
+
     // Watermark from "task 0" is updated, but less than current watermark
     watermarkMessage = new WatermarkMessage(3L, "task 0");
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 5L);
     assertEquals(watermarkStates.getWatermark(intermediate), 5L);
 
-    // Watermark is computed this time due to advance in "task 0"
+    // Advance currentTime without exceeding the timeout
+    systemTime.advance(1);
+
+    // Watermark is computed this currentTime due to advance in "task 0"
     watermarkMessage = new WatermarkMessage(7L, "task 0");
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 5L);
     assertEquals(watermarkStates.getWatermark(intermediate), 5L);
 
-    // Watermark is computed this time due to advance in "task 1"
+    // Advance currentTime without exceeding the timeout
+    systemTime.advance(1);
+
+    // Watermark is computed this currentTime due to advance in "task 1"
     watermarkMessage = new WatermarkMessage(10L, "task 1");
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 7L);
     assertEquals(watermarkStates.getWatermark(intermediate), 6L);
   }
 
-  class MockSystemTime implements LongSupplier {
-    int createTime = 0;
-    boolean firstWatermark = true;
+  static class MockSystemTime implements LongSupplier {
+    long currentTime = System.currentTimeMillis();
+
+    void advance(long delta) {
+      this.currentTime += delta;
+    }
 
     @Override
     public long getAsLong() {
-      if (createTime < ssps.size()) {
-        createTime++;
-        return System.currentTimeMillis() - TASK_WATERMARK_IDLE_MS;
-      }
-
-      if (firstWatermark) {
-        firstWatermark = false;
-        // Make the first task idle
-        return System.currentTimeMillis() - TASK_WATERMARK_IDLE_MS;
-      } else {
-        return System.currentTimeMillis();
-      }
+      return currentTime;
     }
   }
 }

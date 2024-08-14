@@ -24,7 +24,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.LongSupplier;
 
@@ -38,6 +37,9 @@ import org.slf4j.LoggerFactory;
 /**
  * This class manages the watermarks coming from input/intermediate streams in a task. Internally it keeps track
  * of the latest watermark timestamp from each upstream task, and use the min as the consolidated watermark time.
+ * Lagging tasks can be excluded from the calculation by configuring "task.watermark.idle.timeout.ms", and watermarks
+ * will be computed from the other tasks. This will help unblock downstream aggregations, but at the risk of advancing
+ * event-time clock faster and events coming later from lagging tasks will become late arrivals.
  *
  * This class is thread-safe. However, having parallelism within a task may result in out-of-order processing
  * and inaccurate watermarks. In this scenario, watermarks might be emitted before the previous messages fully processed.
@@ -51,14 +53,14 @@ class WatermarkStates {
     private final int expectedTotal;
     private final Map<String, Long> timestamps = new HashMap<>();
     private final Map<String, Long> lastUpdateTime = new HashMap<>();
-    private final long watermarkIdleTime;
+    private final long watermarkIdleTimeout;
     private final long createTime;
     private final LongSupplier systemTimeFunc;
     private volatile long watermarkTime = WATERMARK_NOT_EXIST;
 
-    WatermarkState(int expectedTotal, long watermarkIdleTime, LongSupplier systemTimeFunc) {
+    WatermarkState(int expectedTotal, long watermarkIdleTimeout, LongSupplier systemTimeFunc) {
       this.expectedTotal = expectedTotal;
-      this.watermarkIdleTime = watermarkIdleTime;
+      this.watermarkIdleTimeout = watermarkIdleTimeout;
       this.systemTimeFunc = systemTimeFunc;
       this.createTime = systemTimeFunc.getAsLong();
     }
@@ -80,18 +82,23 @@ class WatermarkStates {
         // we get watermark either from the source or from the aggregator task
         watermarkTime = Math.max(watermarkTime, timestamp);
       } else if (canUpdateWatermark(currentTime)) {
-        Optional<Long> min;
-        if (watermarkIdleTime <= 0) {
+        final long minWatermark;
+        if (watermarkIdleTimeout <= 0) {
           // All upstream tasks are required in the computation
-          min = timestamps.values().stream().min(Long::compare);
+          minWatermark = timestamps.values().stream().min(Long::compare).orElse(timestamp);
         } else {
           // Exclude the tasks that have been idle in watermark emission.
-          min = timestamps.entrySet().stream()
-                  .filter(t -> currentTime - lastUpdateTime.get(t.getKey()) < watermarkIdleTime)
-                  .map(Map.Entry::getValue)
-                  .min(Long::compare);
+          long min = Long.MAX_VALUE;
+          long watermarkIdleThreshold = currentTime - watermarkIdleTimeout;
+          for (Map.Entry<String, Long> entry : timestamps.entrySet()) {
+            // Check the update happens before the idle timeout
+            if (lastUpdateTime.get(entry.getKey()) > watermarkIdleThreshold) {
+              min = Math.min(min, entry.getValue());
+            }
+          }
+          minWatermark = min == Long.MAX_VALUE ? WATERMARK_NOT_EXIST : min;
         }
-        watermarkTime = Math.max(watermarkTime, min.orElse(timestamp));
+        watermarkTime = Math.max(watermarkTime, minWatermark);
       }
     }
 
@@ -100,7 +107,8 @@ class WatermarkStates {
       // 1. we received watermarks from all upstream tasks, or
       // 2. we allow task idle in emitting watermarks and the idle time has passed.
       return (timestamps.size() == expectedTotal)
-              || (watermarkIdleTime > 0 && currentTime - createTime > watermarkIdleTime);
+              // Handle the case we didn't receive the watermarks from some tasks since startup
+              || (watermarkIdleTimeout > 0 && currentTime - createTime > watermarkIdleTimeout);
     }
 
     long getWatermarkTime() {
@@ -111,14 +119,13 @@ class WatermarkStates {
   private final Map<SystemStreamPartition, WatermarkState> watermarkStates;
   private final List<SystemStreamPartition> intermediateSsps;
   private final WatermarkMetrics watermarkMetrics;
-  private final LongSupplier systemTimeFunc;
 
   WatermarkStates(
           Set<SystemStreamPartition> ssps,
           Map<SystemStream, Integer> producerTaskCounts,
           MetricsRegistry metricsRegistry,
-          long watermarkIdleTime) {
-    this(ssps, producerTaskCounts, metricsRegistry, watermarkIdleTime, System::currentTimeMillis);
+          long watermarkIdleTimeout) {
+    this(ssps, producerTaskCounts, metricsRegistry, watermarkIdleTimeout, System::currentTimeMillis);
   }
 
   //Internal: test-only
@@ -126,14 +133,14 @@ class WatermarkStates {
       Set<SystemStreamPartition> ssps,
       Map<SystemStream, Integer> producerTaskCounts,
       MetricsRegistry metricsRegistry,
-      long watermarkIdleTime,
+      long watermarkIdleTimeout,
       LongSupplier systemTimeFunc) {
     final Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     final List<SystemStreamPartition> intSsps = new ArrayList<>();
 
     ssps.forEach(ssp -> {
       final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
-      states.put(ssp, new WatermarkState(producerCount, watermarkIdleTime, systemTimeFunc));
+      states.put(ssp, new WatermarkState(producerCount, watermarkIdleTimeout, systemTimeFunc));
       if (producerCount != 0) {
         intSsps.add(ssp);
       }
@@ -141,7 +148,6 @@ class WatermarkStates {
     this.watermarkStates = Collections.unmodifiableMap(states);
     this.watermarkMetrics = new WatermarkMetrics(metricsRegistry);
     this.intermediateSsps = Collections.unmodifiableList(intSsps);
-    this.systemTimeFunc = systemTimeFunc;
   }
 
   /**
