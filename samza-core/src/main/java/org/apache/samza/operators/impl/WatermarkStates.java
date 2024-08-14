@@ -52,6 +52,7 @@ class WatermarkStates {
     private final Map<String, Long> timestamps = new HashMap<>();
     private final Map<String, Long> lastUpdateTime = new HashMap<>();
     private final long watermarkIdleTime;
+    private final long createTime;
     private final LongSupplier systemTimeFunc;
     private volatile long watermarkTime = WATERMARK_NOT_EXIST;
 
@@ -59,6 +60,7 @@ class WatermarkStates {
       this.expectedTotal = expectedTotal;
       this.watermarkIdleTime = watermarkIdleTime;
       this.systemTimeFunc = systemTimeFunc;
+      this.createTime = systemTimeFunc.getAsLong();
     }
 
     synchronized void update(long timestamp, String taskName) {
@@ -77,20 +79,28 @@ class WatermarkStates {
       if (taskName == null) {
         // we get watermark either from the source or from the aggregator task
         watermarkTime = Math.max(watermarkTime, timestamp);
-      } else if (timestamps.size() == expectedTotal) {
-        // For any intermediate streams, the expectedTotal is the upstream task count.
-        // Check whether we got all the watermarks, and set the watermark to be the min.
+      } else if (canUpdateWatermark(currentTime)) {
         Optional<Long> min;
         if (watermarkIdleTime <= 0) {
+          // All upstream tasks are required in the computation
           min = timestamps.values().stream().min(Long::compare);
         } else {
           // Exclude the tasks that have been idle in watermark emission.
           min = timestamps.entrySet().stream()
                   .filter(t -> currentTime - lastUpdateTime.get(t.getKey()) < watermarkIdleTime)
-                  .map(Map.Entry::getValue).min(Long::compare);
+                  .map(Map.Entry::getValue)
+                  .min(Long::compare);
         }
-        watermarkTime = min.orElse(timestamp);
+        watermarkTime = Math.max(watermarkTime, min.orElse(timestamp));
       }
+    }
+
+    private boolean canUpdateWatermark(long currentTime) {
+      // The watermark can be updated if
+      // 1. we received watermarks from all upstream tasks, or
+      // 2. we allow task idle in emitting watermarks and the idle time has passed.
+      return (timestamps.size() == expectedTotal)
+              || (watermarkIdleTime > 0 && currentTime - createTime > watermarkIdleTime);
     }
 
     long getWatermarkTime() {
