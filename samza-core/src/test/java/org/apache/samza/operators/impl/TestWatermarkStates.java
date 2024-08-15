@@ -71,7 +71,8 @@ public class TestWatermarkStates {
   public void testUpdate() {
     // advance watermark on input to 5
     WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
-            TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS);
+            TaskConfig.DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS,
+            TaskConfig.DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE);
     IncomingMessageEnvelope envelope = IncomingMessageEnvelope.buildWatermarkEnvelope(inputPartition0, 5L);
     watermarkStates.update((WatermarkMessage) envelope.getMessage(),
         envelope.getSystemStreamPartition());
@@ -122,7 +123,7 @@ public class TestWatermarkStates {
   public void testIdle() {
     MockSystemTime systemTime = new MockSystemTime();
     WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
-            TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS, systemTime);
+            TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS, TaskConfig.DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE, systemTime);
 
     // First watermark
     WatermarkMessage watermarkMessage = new WatermarkMessage(1L, "task 0");
@@ -181,6 +182,37 @@ public class TestWatermarkStates {
     watermarkStates.update(watermarkMessage, intPartition0);
     assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 7L);
     assertEquals(watermarkStates.getWatermark(intermediate), 6L);
+  }
+
+  @Test
+  public void testQuorum() {
+    MockSystemTime systemTime = new MockSystemTime();
+    WatermarkStates watermarkStates = new WatermarkStates(ssps, producerCounts, new MetricsRegistryMap(),
+            TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS, 1.0, systemTime);
+
+    // First watermark
+    WatermarkMessage watermarkMessage = new WatermarkMessage(1L, "task 0");
+    watermarkStates.update(watermarkMessage, intPartition0);
+    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), WATERMARK_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
+
+    // Advance currentTime to pass the idle timeout
+    systemTime.advance(TEST_TASK_WATERMARK_IDLE_TIMEOUT_MS);
+
+    // Watermark is computed based on "task 1" alone since "task 0" passes the idle timeout
+    // Not meeting quorum
+    watermarkMessage = new WatermarkMessage(5L, "task 1");
+    watermarkStates.update(watermarkMessage, intPartition0);
+    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), WATERMARK_NOT_EXIST);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
+
+    systemTime.advance(1);
+
+    // Watermark from task 0, now quorum is met.
+    watermarkMessage = new WatermarkMessage(3L, "task 0");
+    watermarkStates.update(watermarkMessage, intPartition0);
+    assertEquals(watermarkStates.getWatermarkPerSSP(intPartition0), 3L);
+    assertEquals(watermarkStates.getWatermark(intermediate), WATERMARK_NOT_EXIST);
   }
 
   static class MockSystemTime implements LongSupplier {

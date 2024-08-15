@@ -123,7 +123,8 @@ public class OperatorImplGraph {
     internalTaskContext.registerObject(WatermarkStates.class.getName(),
         new WatermarkStates(internalTaskContext.getSspsExcludingSideInputs(), producerTaskCounts,
             context.getContainerContext().getContainerMetricsRegistry(),
-            taskConfig.getWatermarkIdleTimeoutMs()));
+            taskConfig.getWatermarkIdleTimeoutMs(),
+            taskConfig.getWatermarkQuorumSizePercentage()));
 
     // set states for drain; don't include side inputs (see SAMZA-2303)
     internalTaskContext.registerObject(DrainStates.class.getName(),

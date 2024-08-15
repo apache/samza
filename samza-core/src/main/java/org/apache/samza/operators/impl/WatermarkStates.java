@@ -54,13 +54,19 @@ class WatermarkStates {
     private final Map<String, Long> timestamps = new HashMap<>();
     private final Map<String, Long> lastUpdateTime = new HashMap<>();
     private final long watermarkIdleTimeout;
+    private final int quorumSize;
     private final long createTime;
     private final LongSupplier systemTimeFunc;
     private volatile long watermarkTime = WATERMARK_NOT_EXIST;
 
-    WatermarkState(int expectedTotal, long watermarkIdleTimeout, LongSupplier systemTimeFunc) {
+    WatermarkState(
+            int expectedTotal,
+            long watermarkIdleTimeout,
+            double watermarkQuorumSizePercentage,
+            LongSupplier systemTimeFunc) {
       this.expectedTotal = expectedTotal;
       this.watermarkIdleTimeout = watermarkIdleTimeout;
+      this.quorumSize = (int) (expectedTotal * watermarkQuorumSizePercentage);
       this.systemTimeFunc = systemTimeFunc;
       this.createTime = systemTimeFunc.getAsLong();
     }
@@ -90,13 +96,17 @@ class WatermarkStates {
           // Exclude the tasks that have been idle in watermark emission.
           long min = Long.MAX_VALUE;
           long watermarkIdleThreshold = currentTime - watermarkIdleTimeout;
+          int updateCount = 0;
           for (Map.Entry<String, Long> entry : timestamps.entrySet()) {
             // Check the update happens before the idle timeout
             if (lastUpdateTime.get(entry.getKey()) > watermarkIdleThreshold) {
               min = Math.min(min, entry.getValue());
+              updateCount++;
             }
           }
-          minWatermark = min == Long.MAX_VALUE ? WATERMARK_NOT_EXIST : min;
+
+          // Active tasks must exceed the quorum size
+          minWatermark = (updateCount >= quorumSize && min != Long.MAX_VALUE) ? min : WATERMARK_NOT_EXIST;
         }
         watermarkTime = Math.max(watermarkTime, minWatermark);
       }
@@ -124,8 +134,10 @@ class WatermarkStates {
           Set<SystemStreamPartition> ssps,
           Map<SystemStream, Integer> producerTaskCounts,
           MetricsRegistry metricsRegistry,
-          long watermarkIdleTimeout) {
-    this(ssps, producerTaskCounts, metricsRegistry, watermarkIdleTimeout, System::currentTimeMillis);
+          long watermarkIdleTimeout,
+          double watermarkQuorumSizePercentage) {
+    this(ssps, producerTaskCounts, metricsRegistry, watermarkIdleTimeout,
+            watermarkQuorumSizePercentage, System::currentTimeMillis);
   }
 
   //Internal: test-only
@@ -134,13 +146,15 @@ class WatermarkStates {
       Map<SystemStream, Integer> producerTaskCounts,
       MetricsRegistry metricsRegistry,
       long watermarkIdleTimeout,
+      double watermarkQuorumSizePercentage,
       LongSupplier systemTimeFunc) {
     final Map<SystemStreamPartition, WatermarkState> states = new HashMap<>();
     final List<SystemStreamPartition> intSsps = new ArrayList<>();
 
     ssps.forEach(ssp -> {
       final int producerCount = producerTaskCounts.getOrDefault(ssp.getSystemStream(), 0);
-      states.put(ssp, new WatermarkState(producerCount, watermarkIdleTimeout, systemTimeFunc));
+      states.put(ssp,
+              new WatermarkState(producerCount, watermarkIdleTimeout, watermarkQuorumSizePercentage, systemTimeFunc));
       if (producerCount != 0) {
         intSsps.add(ssp);
       }

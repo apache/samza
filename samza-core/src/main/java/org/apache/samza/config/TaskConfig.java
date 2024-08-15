@@ -151,6 +151,9 @@ public class TaskConfig extends MapConfig {
   // so that the watermarks will still be generated from other active tasks.
   public static final String WATERMARK_IDLE_TIMEOUT_MS = "task.watermark.idle.timeout.ms";
   public static final long DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS = -1L;
+  // The quorum size required to generate watermarks when there are idle tasks.
+  public static final String WATERMARK_QUORUM_SIZE_PERCENTAGE = "task.watermark.quorum.size,percentage";
+  public static final double DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE = 0.5;
 
   public TaskConfig(Config config) {
     super(config);
@@ -410,5 +413,9 @@ public class TaskConfig extends MapConfig {
 
   public long getWatermarkIdleTimeoutMs() {
     return getLong(WATERMARK_IDLE_TIMEOUT_MS, DEFAULT_TASK_WATERMARK_IDLE_TIMEOUT_MS);
+  }
+
+  public double getWatermarkQuorumSizePercentage() {
+    return getDouble(WATERMARK_QUORUM_SIZE_PERCENTAGE, DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE);
   }
 }
