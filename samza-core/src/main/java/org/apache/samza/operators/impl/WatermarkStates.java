@@ -58,6 +58,7 @@ class WatermarkStates {
     private final long createTime;
     private final LongSupplier systemTimeFunc;
     private volatile long watermarkTime = WATERMARK_NOT_EXIST;
+    private volatile int quorumCount = 0;
 
     WatermarkState(
             int expectedTotal,
@@ -107,6 +108,13 @@ class WatermarkStates {
 
           // Active tasks must exceed the quorum size
           minWatermark = (updateCount >= quorumSize && min != Long.MAX_VALUE) ? min : WATERMARK_NOT_EXIST;
+
+          // Log the current quorum count
+          if (this.quorumCount != updateCount) {
+            this.quorumCount = updateCount;
+            LOG.info("Current quorum count is {} for watermark aggregation, and the expected quorum size is {}",
+                    this.quorumCount, this.quorumSize);
+          }
         }
         watermarkTime = Math.max(watermarkTime, minWatermark);
       }
