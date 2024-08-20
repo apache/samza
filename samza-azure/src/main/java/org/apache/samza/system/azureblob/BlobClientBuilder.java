@@ -22,8 +22,12 @@ import com.azure.storage.blob.BlobServiceAsyncClient;
 
 
 /**
- * Create a BlobServiceAsyncClient. Implementation controls construction of
- * underlying client.
+ * Create a BlobServiceAsyncClient. Implementation controls construction of underlying client.
+ * Customers implementing their own System Producer need to ensure thread safety of following impl for generation of client.
+ * If org.apache.samza.system.azureblob.producer.AzureBlobSystemProducer is used, it by defaults allows only one thread to create the client.
+ * Please ensure any client implementation of this interface to be thread safe as well.
+ * AzureBlobSystemProducer also ensures to safely close the client on call of stop(). Please ensure to close clients if using this interface
+ * to create your own client.
  */
 public interface BlobClientBuilder {
   /**
