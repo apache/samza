@@ -86,8 +86,8 @@ public class RocksDbOptionsHelper {
    */
   private static final int DEFAULT_ROCKSDB_MAX_BACKGROUND_JOBS = 4;
 
-
-  public static Options options(Config storeConfig, int numTasksForContainer, File storeDir, StorageEngineFactory.StoreMode storeMode) {
+  public static Options options(Config storeConfig, int numTasksForContainer, long defaultMaxManifestFileSize,
+      File storeDir, StorageEngineFactory.StoreMode storeMode) {
     Options options = new Options();
 
     if (storeConfig.getBoolean(ROCKSDB_WAL_ENABLED, false)) {
@@ -143,10 +143,8 @@ public class RocksDbOptionsHelper {
     options.setDeleteObsoleteFilesPeriodMicros(storeConfig.getLong(ROCKSDB_DELETE_OBSOLETE_FILES_PERIOD_MICROS, 21600000000L));
     options.setMaxOpenFiles(storeConfig.getInt(ROCKSDB_MAX_OPEN_FILES, -1));
     options.setMaxFileOpeningThreads(storeConfig.getInt(ROCKSDB_MAX_FILE_OPENING_THREADS, 16));
-    // The default for rocksdb is 18446744073709551615, which is larger than java Long.MAX_VALUE. Hence setting it only if it's passed.
-    if (storeConfig.containsKey(ROCKSDB_MAX_MANIFEST_FILE_SIZE)) {
-      options.setMaxManifestFileSize(storeConfig.getLong(ROCKSDB_MAX_MANIFEST_FILE_SIZE));
-    }
+    // The default for rocksdb is 1GB (1024*1024*1024 bytes)
+    options.setMaxManifestFileSize(storeConfig.getLong(ROCKSDB_MAX_MANIFEST_FILE_SIZE, defaultMaxManifestFileSize));
     // use prepareForBulk load only when i. the store is being requested in BulkLoad mode
     // and ii. the storeDirectory does not exist (fresh restore), because bulk load does not work seamlessly with
     // existing stores : https://github.com/facebook/rocksdb/issues/2734

@@ -590,4 +590,15 @@ public class TestStorageConfig {
     assertEquals(Collections.emptyList(),
         new StorageConfig(new MapConfig(configMap)).getStoresWithBackupFactory(storeBackupFactory2));
   }
+
+  @Test
+  public void testGetMaxManifestFileSize() {
+    // empty config, return default size, which is 1GB
+    assertEquals(DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE,
+        new StorageConfig(new MapConfig()).getDefaultMaxManifestFileSizeBytes());
+
+    StorageConfig storageConfig = new StorageConfig(
+        new MapConfig(ImmutableMap.of(String.format(StorageConfig.ROCKSDB_MAX_MANIFEST_FILE_SIZE, "default"), "1024")));
+    assertEquals(1024, storageConfig.getDefaultMaxManifestFileSizeBytes());
+  }
 }

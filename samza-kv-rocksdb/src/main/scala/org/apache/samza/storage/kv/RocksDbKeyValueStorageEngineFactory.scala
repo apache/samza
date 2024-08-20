@@ -42,14 +42,22 @@ class RocksDbKeyValueStorageEngineFactory [K, V] extends BaseKeyValueStorageEngi
     registry: MetricsRegistry,
     jobContext: JobContext,
     containerContext: ContainerContext, storeMode: StoreMode): KeyValueStore[Array[Byte], Array[Byte]] = {
+    val storageConfig = new StorageConfig(jobContext.getConfig)
     val storageConfigSubset = jobContext.getConfig.subset("stores." + storeName + ".", true)
-    val isLoggedStore = new StorageConfig(jobContext.getConfig).getChangelogStream(storeName).isPresent
+    val isLoggedStore = storageConfig.getChangelogStream(storeName).isPresent
     val rocksDbMetrics = new KeyValueStoreMetrics(storeName, registry)
     val numTasksForContainer = containerContext.getContainerModel.getTasks.keySet().size()
+    val defaultMaxManifestFileSize = storageConfig.getDefaultMaxManifestFileSizeBytes
     rocksDbMetrics.newGauge("rocksdb.block-cache-size",
       () => RocksDbOptionsHelper.getBlockCacheSize(storageConfigSubset, numTasksForContainer))
 
-    val rocksDbOptions = RocksDbOptionsHelper.options(storageConfigSubset, numTasksForContainer, storeDir, storeMode)
+    val rocksDbOptions = RocksDbOptionsHelper.options(
+      storageConfigSubset,
+      numTasksForContainer,
+      defaultMaxManifestFileSize,
+      storeDir,
+      storeMode
+    )
     val rocksDbWriteOptions = new WriteOptions()
 
     if (!storageConfigSubset.getBoolean(RocksDbOptionsHelper.ROCKSDB_WAL_ENABLED, false)) {
