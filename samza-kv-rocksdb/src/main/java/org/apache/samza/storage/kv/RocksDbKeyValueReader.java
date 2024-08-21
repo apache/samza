@@ -63,7 +63,7 @@ public class RocksDbKeyValueReader {
     // get db options
     Options options = RocksDbOptionsHelper.options(config,
         1,
-        StorageConfig.DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE,
+        StorageConfig.DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE_IN_BYTES,
         new File(dbPath),
         StorageEngineFactory.StoreMode.ReadWrite
     );
