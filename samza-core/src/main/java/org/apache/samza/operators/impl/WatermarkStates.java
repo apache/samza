@@ -89,11 +89,9 @@ class WatermarkStates {
         // we get watermark either from the source or from the aggregator task
         watermarkTime = Math.max(watermarkTime, timestamp);
       } else if (canUpdateWatermark(currentTime)) {
-        final long minWatermark;
-        if (watermarkIdleTimeout <= 0) {
-          // All upstream tasks are required in the computation
-          minWatermark = timestamps.values().stream().min(Long::compare).orElse(timestamp);
-        } else {
+        long minWatermark = timestamps.values().stream().min(Long::compare).orElse(timestamp);
+
+        if (minWatermark <= watermarkTime && watermarkIdleTimeout > 0) {
           // Exclude the tasks that have been idle in watermark emission.
           long min = Long.MAX_VALUE;
           long watermarkIdleThreshold = currentTime - watermarkIdleTimeout;
@@ -108,14 +106,11 @@ class WatermarkStates {
 
           // Active tasks must exceed the quorum size
           minWatermark = (updateCount >= quorumSize && min != Long.MAX_VALUE) ? min : WATERMARK_NOT_EXIST;
-
-          // Log the current quorum count
-          if (this.quorumCount != updateCount) {
-            this.quorumCount = updateCount;
-            LOG.info("Current quorum count is {} for watermark aggregation, and the expected quorum size is {}",
-                    this.quorumCount, this.quorumSize);
-          }
+          quorumCount = updateCount;
+        } else {
+          quorumCount = timestamps.size();
         }
+
         watermarkTime = Math.max(watermarkTime, minWatermark);
       }
     }
@@ -126,11 +121,15 @@ class WatermarkStates {
       // 2. we allow task idle in emitting watermarks and the idle time has passed.
       return (timestamps.size() == expectedTotal)
               // Handle the case we didn't receive the watermarks from some tasks since startup
-              || (watermarkIdleTimeout > 0 && currentTime - createTime > watermarkIdleTimeout);
+              || (watermarkIdleTimeout > 0 && currentTime - createTime >= watermarkIdleTimeout && timestamps.size() >= quorumSize);
     }
 
     long getWatermarkTime() {
       return watermarkTime;
+    }
+
+    int getQuorumCount() {
+      return quorumCount;
     }
   }
 
@@ -205,6 +204,11 @@ class WatermarkStates {
       // Only report the aggregates watermarks for intermediate streams
       // to reduce the amount of metrics
       watermarkMetrics.setAggregateTime(ssp, time);
+
+      final WatermarkState state = watermarkStates.get(ssp);
+      if (state != null && state.getQuorumCount() != 0) {
+        watermarkMetrics.setQuorumCount(ssp.getSystemStream(), state.getQuorumCount());
+      }
     }
   }
 }

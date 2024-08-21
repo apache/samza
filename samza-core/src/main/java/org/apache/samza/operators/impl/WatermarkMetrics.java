@@ -22,6 +22,7 @@ package org.apache.samza.operators.impl;
 import org.apache.samza.metrics.Gauge;
 import org.apache.samza.metrics.MetricsBase;
 import org.apache.samza.metrics.MetricsRegistry;
+import org.apache.samza.system.SystemStream;
 import org.apache.samza.system.SystemStreamPartition;
 
 import java.util.Map;
@@ -29,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 class WatermarkMetrics extends MetricsBase {
   private final Map<SystemStreamPartition, Gauge<Long>> aggregates = new ConcurrentHashMap<>();
+  private final Map<SystemStream, Gauge<Integer>> quorumCounts = new ConcurrentHashMap<>();
 
   WatermarkMetrics(MetricsRegistry registry) {
     super("watermark-", registry);
@@ -39,5 +41,11 @@ class WatermarkMetrics extends MetricsBase {
       ssp -> newGauge(String.format("%s-%s-aggr-watermark",
           ssp.getStream(), ssp.getPartition().getPartitionId()), 0L));
     aggregate.set(time);
+  }
+
+  void setQuorumCount(SystemStream stream, int quorumCount) {
+    final Gauge<Integer> gauge = quorumCounts.computeIfAbsent(stream,
+      ssp -> newGauge(String.format("%s-aggr-watermark", ssp.getStream()), 0));
+    gauge.set(quorumCount);
   }
 }
