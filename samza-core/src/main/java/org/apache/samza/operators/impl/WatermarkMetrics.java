@@ -45,7 +45,7 @@ class WatermarkMetrics extends MetricsBase {
 
   void setQuorumCount(SystemStream stream, int quorumCount) {
     final Gauge<Integer> gauge = quorumCounts.computeIfAbsent(stream,
-      ssp -> newGauge(String.format("%s-aggr-watermark", ssp.getStream()), 0));
+      ssp -> newGauge(String.format("%s-quorum-count", ssp.getStream()), 0));
     gauge.set(quorumCount);
   }
 }
