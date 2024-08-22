@@ -38,6 +38,8 @@ public class AzureBlobConfig extends MapConfig {
   // fully qualified class name of the AzureBlobWriter impl for the producer system
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME = SYSTEM_AZUREBLOB_PREFIX + "writer.factory.class";
   public static final String SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.avro.AzureBlobAvroWriterFactory";
+  public static final String SYSTEM_BLOB_CLIENT_BUILDER_FACTORY_CLASS_NAME = SYSTEM_AZUREBLOB_PREFIX + "azureclientbuilder.factory.class";
+  public static final String SYSTEM_BLOB_CLIENT_BUILDER_FACTORY_CLASS_NAME_DEFAULT = "org.apache.samza.system.azureblob.AzureBlobClientBuilderFactory";
 
   public static final String SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION = Config.SENSITIVE_PREFIX + SYSTEM_AZUREBLOB_PREFIX + "useTokenCredentialAuthentication";
   private static final boolean SYSTEM_USE_TOKEN_CREDENTIAL_AUTHENTICATION_DEFAULT = false;
@@ -170,6 +172,11 @@ public class AzureBlobConfig extends MapConfig {
 
   public String getAzureBlobWriterFactoryClassName(String systemName) {
     return get(String.format(SYSTEM_WRITER_FACTORY_CLASS_NAME, systemName), SYSTEM_WRITER_FACTORY_CLASS_NAME_DEFAULT);
+  }
+
+  public String getAzureBlobClientBuilderFactoryClassName(String systemName) {
+    return get(String.format(SYSTEM_BLOB_CLIENT_BUILDER_FACTORY_CLASS_NAME, systemName),
+        SYSTEM_BLOB_CLIENT_BUILDER_FACTORY_CLASS_NAME_DEFAULT);
   }
 
   public int getMaxFlushThresholdSize(String systemName) {

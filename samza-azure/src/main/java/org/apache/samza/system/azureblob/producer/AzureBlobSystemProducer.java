@@ -44,8 +44,8 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemProducerException;
-import org.apache.samza.system.azureblob.AzureBlobClientBuilder;
 import org.apache.samza.system.azureblob.AzureBlobConfig;
+import org.apache.samza.system.azureblob.BlobClientBuilderFactory;
 import org.apache.samza.system.azureblob.compression.CompressionFactory;
 import org.apache.samza.system.azureblob.utils.BlobMetadataGeneratorFactory;
 import org.slf4j.Logger;
@@ -116,6 +116,7 @@ public class AzureBlobSystemProducer implements SystemProducer {
   // Map of writers indexed first by sourceName and then by (streamName, partitionName) or just streamName if partition key does not exist.
   private final Map<String, Map<String, AzureBlobWriter>> writerMap;
   private final AzureBlobWriterFactory writerFactory;
+  private final BlobClientBuilderFactory clientFactory;
 
   private final int blockFlushThresholdSize;
   private final long flushTimeoutMs;
@@ -142,6 +143,13 @@ public class AzureBlobSystemProducer implements SystemProducer {
     System.setProperty(Configuration.PROPERTY_AZURE_LOG_LEVEL, "1");
     this.systemName = systemName;
     this.config = config;
+
+    String clientFactoryClassName = this.config.getAzureBlobClientBuilderFactoryClassName(this.systemName);
+    try {
+      this.clientFactory = (BlobClientBuilderFactory) Class.forName(clientFactoryClassName).newInstance();
+    } catch (Exception e) {
+      throw new SystemProducerException("Could not create blob client factory with name " + clientFactoryClassName, e);
+    }
 
     String writerFactoryClassName = this.config.getAzureBlobWriterFactoryClassName(this.systemName);
     try {
@@ -344,8 +352,8 @@ public class AzureBlobSystemProducer implements SystemProducer {
   @VisibleForTesting
   void setupAzureContainer() {
     try {
-      BlobServiceAsyncClient storageClient  = new AzureBlobClientBuilder(systemName, AZURE_URL, config)
-          .getBlobServiceAsyncClient();
+      BlobServiceAsyncClient storageClient =
+          clientFactory.getBlobClientBuilder(systemName, AZURE_URL, config).getBlobServiceAsyncClient();
       validateFlushThresholdSizeSupported(storageClient);
 
       containerAsyncClient = storageClient.getBlobContainerAsyncClient(systemName);
