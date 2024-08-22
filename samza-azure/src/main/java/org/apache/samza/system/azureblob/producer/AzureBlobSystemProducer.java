@@ -44,7 +44,6 @@ import org.apache.samza.metrics.MetricsRegistry;
 import org.apache.samza.system.OutgoingMessageEnvelope;
 import org.apache.samza.system.SystemProducer;
 import org.apache.samza.system.SystemProducerException;
-import org.apache.samza.system.azureblob.AzureBlobClientBuilder;
 import org.apache.samza.system.azureblob.AzureBlobConfig;
 import org.apache.samza.system.azureblob.BlobClientBuilderFactory;
 import org.apache.samza.system.azureblob.compression.CompressionFactory;
