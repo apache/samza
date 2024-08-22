@@ -49,6 +49,8 @@ public class StorageConfig extends MapConfig {
   private static final String SIDE_INPUT_PROCESSOR_FACTORY_SUFFIX = ".side.inputs.processor.factory";
   private static final String STORE_PREFIX = "stores.";
 
+  private static final String DEFAULT_STORE_NAME = "default";
+
   public static final String FACTORY = STORE_PREFIX + "%s" + FACTORY_SUFFIX;
   public static final String KEY_SERDE = STORE_PREFIX + "%s.key.serde";
   public static final String MSG_SERDE = STORE_PREFIX + "%s.msg.serde";
@@ -81,7 +83,8 @@ public class StorageConfig extends MapConfig {
   public static final List<String> DEFAULT_RESTORE_FACTORIES = ImmutableList.of(KAFKA_STATE_BACKEND_FACTORY);
   public static final long DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE_IN_BYTES = 1024 * 1024 * 1024L;
 
-  static final String DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE = STORE_PREFIX + "default.rocksdb.max.manifest.file.size";
+  static final String DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE =
+      STORE_PREFIX + DEFAULT_STORE_NAME + ".rocksdb.max.manifest.file.size";
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
   static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
