@@ -79,7 +79,9 @@ public class StorageConfig extends MapConfig {
   public static final String STORE_RESTORE_FACTORIES = STORE_PREFIX + "%s." + RESTORE_FACTORIES_SUFFIX;
   public static final String JOB_RESTORE_FACTORIES = STORE_PREFIX + RESTORE_FACTORIES_SUFFIX;
   public static final List<String> DEFAULT_RESTORE_FACTORIES = ImmutableList.of(KAFKA_STATE_BACKEND_FACTORY);
+  public static final long DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE_IN_BYTES = 1024 * 1024 * 1024L;
 
+  static final String DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE = "stores-default.rocksdb.max.manifest.file.size.bytes";
   static final String CHANGELOG_SYSTEM = "job.changelog.system";
   static final String CHANGELOG_DELETE_RETENTION_MS = STORE_PREFIX + "%s.changelog.delete.retention.ms";
   static final long DEFAULT_CHANGELOG_DELETE_RETENTION_MS = TimeUnit.DAYS.toMillis(1);
@@ -261,6 +263,15 @@ public class StorageConfig extends MapConfig {
         "Use " + minCompactLagConfigName + " to set kafka min.compaction.lag.ms property.");
 
     return getLong(minCompactLagConfigName, getDefaultChangelogMinCompactionLagMs());
+  }
+
+  /**
+   * Helper method to get the default RocksDB max manifest file size in bytes for ANY stores, which is default to 1GB.
+   * The default value for ANY stores can be configured by "stores-default.rocksdb.max.manifest.file.size.bytes",
+   * and the value for a specific store can be configured by "stores.store-name.rocksdb.max.manifest.file.size".
+   */
+  public long getDefaultMaxManifestFileSizeBytes() {
+    return getLong(DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE, DEFAULT_ROCKSDB_MAX_MANIFEST_FILE_SIZE_IN_BYTES);
   }
 
   /**

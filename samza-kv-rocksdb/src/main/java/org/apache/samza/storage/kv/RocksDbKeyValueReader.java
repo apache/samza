@@ -61,7 +61,12 @@ public class RocksDbKeyValueReader {
     valueSerde = getSerdeFromName(storageConfig.getStorageMsgSerde(storeName).orElse(null), serializerConfig);
 
     // get db options
-    Options options = RocksDbOptionsHelper.options(config, 1, new File(dbPath), StorageEngineFactory.StoreMode.ReadWrite);
+    Options options = RocksDbOptionsHelper.options(config,
+        1,
+        storageConfig.getDefaultMaxManifestFileSizeBytes(),
+        new File(dbPath),
+        StorageEngineFactory.StoreMode.ReadWrite
+    );
 
     // open the db
     RocksDB.loadLibrary();
