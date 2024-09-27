@@ -65,6 +65,9 @@ public class TaskConfig extends MapConfig {
   public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
   static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(30).toMillis();
 
+  public static final String SKIP_COMMIT_DURING_FAILURES_ENABLED = "task.commit.skip.commit.during.failures.enabled";
+  private static final boolean DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED = false;
+
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -417,5 +420,9 @@ public class TaskConfig extends MapConfig {
 
   public double getWatermarkQuorumSizePercentage() {
     return getDouble(WATERMARK_QUORUM_SIZE_PERCENTAGE, DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE);
+  }
+
+  public boolean getSkipCommitDuringFailuresEnabled() {
+    return getBoolean(SKIP_COMMIT_DURING_FAILURES_ENABLED, DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED);
   }
 }
