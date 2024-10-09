@@ -182,7 +182,13 @@ public class BlobStoreUtil {
     return FutureUtil.executeAsyncWithRetries(opName, () -> {
       ByteArrayOutputStream indexBlobStream = new ByteArrayOutputStream(); // no need to close ByteArrayOutputStream
       return blobStoreManager.get(blobId, indexBlobStream, metadata, getDeleted).toCompletableFuture()
-          .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor);
+          .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor)
+          .handle((snapshotIndex, ex) -> {
+            if (ex != null) {
+              throw new SamzaException(String.format("Unable to deserialize SnapshotIndex bytes for blob ID: %s", blobId), ex);
+            }
+            return snapshotIndex;
+          });
     }, isCauseNonRetriable(), executor, retryPolicyConfig);
   }
 
