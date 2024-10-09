@@ -1004,6 +1004,131 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     verify(snapshotTimer, times(2)).update(anyLong())
   }
 
+  @Test
+  def testSkipExceptionFromFirstCommitAndContinueSecondCommit(): Unit = {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionIgnoredCounter = mock[Gauge[Int]]
+    when(this.metrics.commitExceptionIgnored).thenReturn(commitExceptionIgnoredCounter)
+
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "2000000")
+    // skip commit if exception occurs during the commit
+    taskConfigsMap.put("task.commit.skip.commit.during.failures.enabled", "true")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap))
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION, "4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    // Ensure the second commit proceeds without exceptions
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    //  exception during the first commit
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(FutureUtil.failedFuture[util.Map[String, util.Map[String, String]]](new RuntimeException))
+
+    taskInstance.commit
+    verify(commitsCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verifyZeroInteractions(uploadTimer)
+    verifyZeroInteractions(commitTimer)
+    verifyZeroInteractions(skippedCounter)
+    Thread.sleep(1000) // ensure the commitException is updated by the previous commit
+    taskInstance.commit
+    verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
+    verify(commitExceptionIgnoredCounter).set(1)
+  }
+
+  @Test
+  def testIgnoreTimeoutAndContinueCommitIfPreviousAsyncCommitInProgressAfterMaxCommitDelayAndBlockTime(): Unit = {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val skippedCounter = mock[Gauge[Int]]
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val commitsTimedOutCounter = mock[Gauge[Int]]
+    when(this.metrics.commitsTimedOut).thenReturn(commitsTimedOutCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionIgnoredCounter = mock[Gauge[Int]]
+    when(this.metrics.commitExceptionIgnored).thenReturn(commitExceptionIgnoredCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
+
+    val cleanUpFuture = new CompletableFuture[Void]()
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(cleanUpFuture)
+
+    // use a separate executor to perform async operations on to test caller thread blocking behavior
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    // "block" immediately if previous commit async stage not complete
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "0") // throw exception immediately if blocked
+    taskConfigsMap.put("task.commit.skip.commit.during.failures.enabled", "true")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap)) // override default behavior
+
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    taskInstance.commit // async stage will not complete until cleanUpFuture is completed
+    taskInstance.commit // second commit found commit timeout and release the semaphore
+    cleanUpFuture.complete(null) // just to unblock shared executor
+
+    verifyZeroInteractions(commitExceptionIgnoredCounter)
+    verifyZeroInteractions(skippedCounter)
+    verify(commitsTimedOutCounter).set(1)
+    verify(commitsCounter, times(1)).inc() // should only have been incremented once now - second commit was skipped
+
+    taskInstance.commit // third commit should proceed without any issues
+
+    verify(commitsCounter, times(2)).inc() // should only have been incremented twice - second commit was skipped
+  }
+
 
   /**
     * Given that no application task context factory is provided, then no lifecycle calls should be made.
