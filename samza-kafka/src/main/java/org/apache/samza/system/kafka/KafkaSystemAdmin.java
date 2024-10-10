@@ -76,6 +76,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -465,13 +466,15 @@ public class KafkaSystemAdmin implements SystemAdmin {
       // For normal case, the newest offset will correspond to the offset of the newest message in the stream;
       // But for the big message, it is not the case. Seeking on the newest offset gives nothing for the newest big message.
       // For now, we keep it as is for newest offsets the same as historical metadata structure.
-      if (offset <= 0) {
-        LOG.warn(
-            "Empty Kafka topic partition {} with upcoming offset {}. Skipping newest offset and setting oldest offset to 0 to consume from beginning",
-            topicPartition, offset);
-        oldestOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), "0");
+      long beginOffset = oldestOffsetsWithLong.get(topicPartition);
+      if (offset <= 0L) {
+        LOG.warn("Empty Kafka topic partition {} with upcoming offset {}. Skipping newest offset and setting oldest offset to 0 to consume from beginning", topicPartition, offset);
+        oldestOffsets.put(KafkaUtil.toSystemStreamPartition(this.systemName, topicPartition), "0");
+      } else if (Objects.equals(beginOffset, offset)) {
+        LOG.warn("Empty Kafka topic partition {} with upcoming offset {}", topicPartition, offset);
+        newestOffsets.put(KafkaUtil.toSystemStreamPartition(this.systemName, topicPartition), String.valueOf(offset));
       } else {
-        newestOffsets.put(KafkaUtil.toSystemStreamPartition(systemName, topicPartition), String.valueOf(offset - 1));
+        newestOffsets.put(KafkaUtil.toSystemStreamPartition(this.systemName, topicPartition), String.valueOf(offset - 1L));
       }
     });
     return new OffsetsMaps(oldestOffsets, newestOffsets, upcomingOffsets);
