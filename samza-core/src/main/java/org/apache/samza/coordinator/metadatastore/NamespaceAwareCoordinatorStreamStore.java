@@ -19,8 +19,11 @@
 package org.apache.samza.coordinator.metadatastore;
 
 import com.google.common.annotations.VisibleForTesting;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -32,6 +35,9 @@ import org.apache.samza.metadatastore.MetadataStore;
  */
 public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
 
+  private static final String SET_TASK_PARTITION_ASSIGNMENT = "set-task-partition-assignment";
+  private static final String KEY_BUCKET = ",\"keyBucket\":-1}";
+  private static final String WITHOUT_KEY_BUCKET = "}";
   private final MetadataStore metadataStore;
   private final String namespace;
 
@@ -105,16 +111,23 @@ public class NamespaceAwareCoordinatorStreamStore implements MetadataStore {
   private Map<String, byte[]> readMessagesFromCoordinatorStore() {
     Map<String, byte[]> bootstrappedMessages = new HashMap<>();
     Map<String, byte[]> coordinatorStreamMessages = metadataStore.all();
+    List<String> keyDeduplicationReference = new ArrayList<>();
     coordinatorStreamMessages.forEach((coordinatorMessageKeyAsJson, value) -> {
       CoordinatorMessageKey coordinatorMessageKey = CoordinatorStreamStore.deserializeCoordinatorMessageKeyFromJson(coordinatorMessageKeyAsJson);
       if (Objects.equals(namespace, coordinatorMessageKey.getNamespace())) {
         if (value != null) {
+          if (namespace.equals(SET_TASK_PARTITION_ASSIGNMENT) && coordinatorMessageKey.getKey().contains(KEY_BUCKET)) {
+            keyDeduplicationReference.add(coordinatorMessageKey.getKey().replace(KEY_BUCKET, WITHOUT_KEY_BUCKET));
+          }
           bootstrappedMessages.put(coordinatorMessageKey.getKey(), value);
         } else {
           bootstrappedMessages.remove(coordinatorMessageKey.getKey());
         }
       }
     });
+    for (String dedupKey: keyDeduplicationReference) {
+      bootstrappedMessages.remove(dedupKey);
+    }
 
     return bootstrappedMessages;
   }
