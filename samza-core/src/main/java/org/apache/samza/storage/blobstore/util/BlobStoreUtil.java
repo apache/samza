@@ -185,7 +185,7 @@ public class BlobStoreUtil {
           .thenApplyAsync(f -> snapshotIndexSerde.fromBytes(indexBlobStream.toByteArray()), executor)
           .handle((snapshotIndex, ex) -> {
             if (ex != null) {
-              throw new SamzaException(String.format("Unable to deserialize SnapshotIndex bytes for blob ID: %s", blobId), ex);
+              throw new SamzaException(String.format("Unable to get SnapshotIndex blob. The blob ID is : %s", blobId), ex);
             }
             return snapshotIndex;
           });
