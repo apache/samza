@@ -135,6 +135,7 @@ class TaskInstance(
   @volatile var lastCommitStartTimeMs = System.currentTimeMillis()
   val commitMaxDelayMs = taskConfig.getCommitMaxDelayMs
   val commitTimeoutMs = taskConfig.getCommitTimeoutMs
+  val skipCommitDuringFailureEnabled = taskConfig.getSkipCommitDuringFailuresEnabled
   val commitInProgress = new Semaphore(1)
   val commitException = new AtomicReference[Exception]()
 
@@ -312,10 +313,18 @@ class TaskInstance(
 
     val commitStartNs = System.nanoTime()
     // first check if there were any unrecoverable errors during the async stage of the pending commit
-    // and if so, shut down the container.
+    // If there is unrecoverable error and skipCommitDuringFailureEnabled is enabled, ignore the error.
+    // Otherwise, shut down the container.
     if (commitException.get() != null) {
-      throw new SamzaException("Unrecoverable error during pending commit for taskName: %s." format taskName,
-        commitException.get())
+      if (skipCommitDuringFailureEnabled) {
+        warn("Ignored the commit failure for taskName %s: %s" format (taskName, commitException.get().getMessage))
+        metrics.commitExceptionIgnored.set(metrics.commitExceptionIgnored.getValue + 1)
+        commitException.set(null)
+        commitInProgress.release()
+      } else {
+        throw new SamzaException("Unrecoverable error during pending commit for taskName: %s." format taskName,
+          commitException.get())
+      }
     }
 
     // if no commit is in progress for this task, continue with this commit.
@@ -339,10 +348,18 @@ class TaskInstance(
         if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
           val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
           metrics.commitsTimedOut.set(metrics.commitsTimedOut.getValue + 1)
-          throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
-            "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
-            "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
-            commitMaxDelayMs, commitTimeoutMs))
+          if (skipCommitDuringFailureEnabled) {
+            warn("Ignoring commit timeout for taskName: %s. %s ms have elapsed since another commit started. " +
+              "Max allowed commit delay is %s ms and commit timeout beyond that is %s ms."
+              format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs))
+            commitInProgress.release()
+            return
+          } else {
+            throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
+              "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
+              "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
+              commitMaxDelayMs, commitTimeoutMs))
+          }
         }
       }
     }
@@ -426,7 +443,7 @@ class TaskInstance(
       }
     })
 
-    metrics.lastCommitNs.set(System.nanoTime() - commitStartNs)
+    metrics.lastCommitNs.set(System.nanoTime())
     metrics.commitSyncNs.update(System.nanoTime() - commitStartNs)
     debug("Finishing sync stage of commit for taskName: %s checkpointId: %s" format (taskName, checkpointId))
   }
@@ -533,6 +550,7 @@ class TaskInstance(
           } else {
             metrics.commitAsyncNs.update(System.nanoTime() - asyncStageStartNs)
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
+            metrics.lastAsyncCommitNs.set(System.nanoTime())
           }
         } finally {
           // release the permit indicating that previous commit is complete.
