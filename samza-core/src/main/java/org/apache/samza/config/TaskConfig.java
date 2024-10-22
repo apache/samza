@@ -68,6 +68,12 @@ public class TaskConfig extends MapConfig {
   public static final String SKIP_COMMIT_DURING_FAILURES_ENABLED = "task.commit.skip.commit.during.failures.enabled";
   private static final boolean DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED = false;
 
+  public static final String SKIP_COMMIT_EXCEPTION_MAX_LIMIT = "task.commit.skip.commit.exception.max.limit";
+  private static final int DEFAULT_SKIP_COMMIT_EXCEPTION_MAX_LIMIT = 5;
+
+  public static final String SKIP_COMMIT_TIMEOUT_MAX_LIMIT = "task.commit.skip.commit.timeout.max.limit";
+  private static final int DEFAULT_SKIP_COMMIT_TIMEOUT_MAX_LIMIT = 2;
+
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -424,5 +430,13 @@ public class TaskConfig extends MapConfig {
 
   public boolean getSkipCommitDuringFailuresEnabled() {
     return getBoolean(SKIP_COMMIT_DURING_FAILURES_ENABLED, DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED);
+  }
+
+  public int getSkipCommitExceptionMaxLimit() {
+    return getInt(SKIP_COMMIT_EXCEPTION_MAX_LIMIT, DEFAULT_SKIP_COMMIT_EXCEPTION_MAX_LIMIT);
+  }
+
+  public int getSkipCommitTimeoutMaxLimit() {
+    return getInt(SKIP_COMMIT_TIMEOUT_MAX_LIMIT, DEFAULT_SKIP_COMMIT_TIMEOUT_MAX_LIMIT);
   }
 }

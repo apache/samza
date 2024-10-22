@@ -133,9 +133,13 @@ class TaskInstance(
   val checkpointWriteVersions = new TaskConfig(config).getCheckpointWriteVersions
 
   @volatile var lastCommitStartTimeMs = System.currentTimeMillis()
+  @volatile var commitExceptionCounter = 0
+  @volatile var commitTimeoutCounter = 0
   val commitMaxDelayMs = taskConfig.getCommitMaxDelayMs
   val commitTimeoutMs = taskConfig.getCommitTimeoutMs
   val skipCommitDuringFailureEnabled = taskConfig.getSkipCommitDuringFailuresEnabled
+  val skipCommitExceptionMaxLimit = taskConfig.getSkipCommitExceptionMaxLimit
+  val skipCommitTimeoutMaxLimit = taskConfig.getSkipCommitTimeoutMaxLimit
   val commitInProgress = new Semaphore(1)
   val commitException = new AtomicReference[Exception]()
 
@@ -313,17 +317,21 @@ class TaskInstance(
 
     val commitStartNs = System.nanoTime()
     // first check if there were any unrecoverable errors during the async stage of the pending commit
-    // If there is unrecoverable error and skipCommitDuringFailureEnabled is enabled, ignore the error.
-    // Otherwise, shut down the container.
+    // If there is unrecoverable error, increment the metric and the counter.
+    // Shutdown the container in the following scenarios:
+    // 1. skipCommitDuringFailureEnabled is not enabled
+    // 2. skipCommitDuringFailureEnabled is enabled but the number of exceptions exceeded the max count
+    // Otherwise, ignore the exception.
     if (commitException.get() != null) {
-      if (skipCommitDuringFailureEnabled) {
+      metrics.commitExceptions.inc()
+      commitExceptionCounter += 1
+      if (!skipCommitDuringFailureEnabled || commitExceptionCounter > skipCommitExceptionMaxLimit) {
+        throw new SamzaException("Unrecoverable error during pending commit for taskName: %s. Exception Counter: %s"
+          format (taskName, commitExceptionCounter), commitException.get())
+      } else {
         warn("Ignored the commit failure for taskName %s: %s" format (taskName, commitException.get().getMessage))
-        metrics.commitExceptionIgnored.set(metrics.commitExceptionIgnored.getValue + 1)
         commitException.set(null)
         commitInProgress.release()
-      } else {
-        throw new SamzaException("Unrecoverable error during pending commit for taskName: %s." format taskName,
-          commitException.get())
       }
     }
 
@@ -337,7 +345,7 @@ class TaskInstance(
       if (timeSinceLastCommit < commitMaxDelayMs) {
         info("Skipping commit for taskName: %s since another commit is in progress. " +
           "%s ms have elapsed since the pending commit started." format (taskName, timeSinceLastCommit))
-        metrics.commitsSkipped.set(metrics.commitsSkipped.getValue + 1)
+        metrics.commitsSkipped.inc()
         return
       } else {
         warn("Blocking processing for taskName: %s until in-flight commit is complete. " +
@@ -345,20 +353,27 @@ class TaskInstance(
           "which is greater than the max allowed commit delay: %s."
           format (taskName, timeSinceLastCommit, commitMaxDelayMs))
 
+        // Wait for the previous commit to complete within the timeout.
+        // If it doesn't complete within the timeout, increment metric and the counter.
+        // Shutdown the container in the following scenarios:
+        // 1. skipCommitDuringFailureEnabled is not enabled
+        // 2. skipCommitDuringFailureEnabled is enabled but the number of timeouts exceeded the max count
+        // Otherwise, ignore the timeout.
         if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
           val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
-          metrics.commitsTimedOut.set(metrics.commitsTimedOut.getValue + 1)
-          if (skipCommitDuringFailureEnabled) {
+          metrics.commitsTimedOut.inc()
+          commitTimeoutCounter += 1
+          if (!skipCommitDuringFailureEnabled || commitTimeoutCounter > skipCommitTimeoutMaxLimit) {
+            throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
+              "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
+              "and commit timeout beyond that is %s ms. Timeout Counter: %s" format (taskName, timeSinceLastCommit,
+              commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter))
+          } else {
             warn("Ignoring commit timeout for taskName: %s. %s ms have elapsed since another commit started. " +
               "Max allowed commit delay is %s ms and commit timeout beyond that is %s ms."
               format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs))
             commitInProgress.release()
             return
-          } else {
-            throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
-              "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
-              "and commit timeout beyond that is %s ms" format (taskName, timeSinceLastCommit,
-              commitMaxDelayMs, commitTimeoutMs))
           }
         }
       }
