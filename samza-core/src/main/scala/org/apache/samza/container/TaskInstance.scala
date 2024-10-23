@@ -329,9 +329,9 @@ class TaskInstance(
         throw new SamzaException("Unrecoverable error during pending commit for taskName: %s. Exception Counter: %s"
           format (taskName, commitExceptionCounter), commitException.get())
       } else {
-        warn("Ignored the commit failure for taskName %s: %s" format (taskName, commitException.get().getMessage))
+        warn("Ignored the commit failure for taskName %s: %s. Exception Counter: %s."
+          format (taskName, commitException.get().getMessage, commitExceptionCounter))
         commitException.set(null)
-        commitInProgress.release()
       }
     }
 
@@ -370,8 +370,8 @@ class TaskInstance(
               commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter))
           } else {
             warn("Ignoring commit timeout for taskName: %s. %s ms have elapsed since another commit started. " +
-              "Max allowed commit delay is %s ms and commit timeout beyond that is %s ms."
-              format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs))
+              "Max allowed commit delay is %s ms and commit timeout beyond that is %s ms. Timeout Counter: %s."
+              format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter))
             commitInProgress.release()
             return
           }
@@ -563,6 +563,8 @@ class TaskInstance(
                 "Saved exception under Caused By.", commitException.get())
             }
           } else {
+            commitExceptionCounter = 0
+            commitTimeoutCounter = 0
             metrics.commitAsyncNs.update(System.nanoTime() - asyncStageStartNs)
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
             metrics.lastAsyncCommitNs.set(System.nanoTime())
