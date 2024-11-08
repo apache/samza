@@ -38,7 +38,7 @@ import org.apache.samza.util.ScalaJavaUtil.JavaOptionals.toRichOptional
 import org.apache.samza.util.{Logging, ReflectionUtil, ScalaJavaUtil}
 
 import java.util
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.function.BiConsumer
 import java.util.function.Function
 import scala.collection.JavaConversions._
@@ -133,8 +133,8 @@ class TaskInstance(
   val checkpointWriteVersions = new TaskConfig(config).getCheckpointWriteVersions
 
   @volatile var lastCommitStartTimeMs = System.currentTimeMillis()
-  @volatile var commitExceptionCounter = 0
-  @volatile var commitTimeoutCounter = 0
+  val commitExceptionCounter = new AtomicInteger(0)
+  val commitTimeoutCounter = new AtomicInteger(0)
   val commitMaxDelayMs = taskConfig.getCommitMaxDelayMs
   val commitTimeoutMs = taskConfig.getCommitTimeoutMs
   val skipCommitDuringFailureEnabled = taskConfig.getSkipCommitDuringFailuresEnabled
@@ -324,13 +324,13 @@ class TaskInstance(
     // Otherwise, ignore the exception.
     if (commitException.get() != null) {
       metrics.commitExceptions.inc()
-      commitExceptionCounter += 1
-      if (!skipCommitDuringFailureEnabled || commitExceptionCounter > skipCommitExceptionMaxLimit) {
+      commitExceptionCounter.incrementAndGet()
+      if (!skipCommitDuringFailureEnabled || commitExceptionCounter.get() > skipCommitExceptionMaxLimit) {
         throw new SamzaException("Unrecoverable error during pending commit for taskName: %s. Exception Counter: %s"
-          format (taskName, commitExceptionCounter), commitException.get())
+          format (taskName, commitExceptionCounter.get()), commitException.get())
       } else {
         warn("Ignored the commit failure for taskName %s: %s. Exception Counter: %s."
-          format (taskName, commitException.get().getMessage, commitExceptionCounter))
+          format (taskName, commitException.get().getMessage, commitExceptionCounter.get()))
         commitException.set(null)
       }
     }
@@ -362,16 +362,16 @@ class TaskInstance(
         if (!commitInProgress.tryAcquire(commitTimeoutMs, TimeUnit.MILLISECONDS)) {
           val timeSinceLastCommit = System.currentTimeMillis() - lastCommitStartTimeMs
           metrics.commitsTimedOut.inc()
-          commitTimeoutCounter += 1
-          if (!skipCommitDuringFailureEnabled || commitTimeoutCounter > skipCommitTimeoutMaxLimit) {
+          commitTimeoutCounter.incrementAndGet()
+          if (!skipCommitDuringFailureEnabled || commitTimeoutCounter.get() > skipCommitTimeoutMaxLimit) {
             throw new SamzaException("Timeout waiting for pending commit for taskName: %s to finish. " +
               "%s ms have elapsed since the pending commit started. Max allowed commit delay is %s ms " +
               "and commit timeout beyond that is %s ms. Timeout Counter: %s" format (taskName, timeSinceLastCommit,
-              commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter))
+              commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter.get()))
           } else {
             warn("Ignoring commit timeout for taskName: %s. %s ms have elapsed since another commit started. " +
               "Max allowed commit delay is %s ms and commit timeout beyond that is %s ms. Timeout Counter: %s."
-              format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter))
+              format (taskName, timeSinceLastCommit, commitMaxDelayMs, commitTimeoutMs, commitTimeoutCounter.get()))
             commitInProgress.release()
             return
           }
@@ -563,8 +563,8 @@ class TaskInstance(
                 "Saved exception under Caused By.", commitException.get())
             }
           } else {
-            commitExceptionCounter = 0
-            commitTimeoutCounter = 0
+            commitExceptionCounter.set(0)
+            commitTimeoutCounter.set(0)
             metrics.commitAsyncNs.update(System.nanoTime() - asyncStageStartNs)
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
             metrics.lastAsyncCommitNs.set(System.nanoTime())
