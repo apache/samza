@@ -66,16 +66,17 @@ public class TaskConfig extends MapConfig {
   static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(30).toMillis();
 
   // Flag to indicate whether to skip commit during failures (exceptions or timeouts)
+  // The number of allowed successive commit exceptions and timeouts are controlled by the following two configs.
   public static final String SKIP_COMMIT_DURING_FAILURES_ENABLED = "task.commit.skip.commit.during.failures.enabled";
   private static final boolean DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED = false;
 
-  // Maximum number of allowed commit exceptions.
-  // If the number of commit exceptions exceeds this limit, the task will be shut down.
+  // Maximum number of allowed successive commit exceptions.
+  // If the number of successive commit exceptions exceeds this limit, the task will be shut down.
   public static final String SKIP_COMMIT_EXCEPTION_MAX_LIMIT = "task.commit.skip.commit.exception.max.limit";
   private static final int DEFAULT_SKIP_COMMIT_EXCEPTION_MAX_LIMIT = 5;
 
-  // Maximum number of allowed commit timeouts.
-  // If the number of commit timeout exceeds this limit, the task will be shut down.
+  // Maximum number of allowed successive commit timeouts.
+  // If the number of successive commit timeout exceeds this limit, the task will be shut down.
   public static final String SKIP_COMMIT_TIMEOUT_MAX_LIMIT = "task.commit.skip.commit.timeout.max.limit";
   private static final int DEFAULT_SKIP_COMMIT_TIMEOUT_MAX_LIMIT = 2;
 

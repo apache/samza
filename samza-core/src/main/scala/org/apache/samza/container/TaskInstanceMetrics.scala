@@ -43,7 +43,7 @@ class TaskInstanceMetrics(
   val commitExceptions = newCounter("commit-exceptions")
   val commitNs = newTimer("commit-ns")
   val lastCommitNs = newGauge("last-commit-ns", 0L)
-  val lastAsyncCommitNs = newGauge("last-async-commit-ns", 0L)
+  val lastCommitAsyncTimestamp = newGauge("last-async-commit-timestamp", 0L)
   val commitSyncNs = newTimer("commit-sync-ns")
   val commitAsyncNs = newTimer("commit-async-ns")
   val snapshotNs = newTimer("snapshot-ns")

@@ -567,7 +567,7 @@ class TaskInstance(
             commitTimeoutCounter.set(0)
             metrics.commitAsyncNs.update(System.nanoTime() - asyncStageStartNs)
             metrics.commitNs.update(System.nanoTime() - commitStartNs)
-            metrics.lastAsyncCommitNs.set(System.nanoTime())
+            metrics.lastCommitAsyncTimestamp.set(System.nanoTime())
           }
         } finally {
           // release the permit indicating that previous commit is complete.
