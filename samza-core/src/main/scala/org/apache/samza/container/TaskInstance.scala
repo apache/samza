@@ -329,8 +329,8 @@ class TaskInstance(
         throw new SamzaException("Unrecoverable error during pending commit for taskName: %s. Exception Counter: %s"
           format (taskName, commitExceptionCounter.get()), commitException.get())
       } else {
-        warn("Ignored the commit failure for taskName %s: %s. Exception Counter: %s."
-          format (taskName, commitException.get().getMessage, commitExceptionCounter.get()))
+        warn("Ignored the commit failure for taskName %s. Exception Counter: %s."
+          format (taskName, commitExceptionCounter.get()), commitException.get())
         commitException.set(null)
       }
     }
