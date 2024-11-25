@@ -277,7 +277,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -370,7 +370,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
 
     val inputOffsets = Map(SYSTEM_STREAM_PARTITION -> "4").asJava
@@ -431,7 +431,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
     val uploadTimer = mock[Timer]
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
@@ -504,10 +504,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionsGauge = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionsGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -556,10 +558,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionsGauge = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionsGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -608,10 +612,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionsGauge = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionsGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -661,10 +667,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionsGauge = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionsGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -714,10 +722,12 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionsGauge = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionsGauge)
 
     val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
     inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
@@ -768,7 +778,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
@@ -828,7 +838,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
@@ -859,7 +869,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
 
     taskInstance.commit
 
-    verify(skippedCounter).set(1)
+    verify(skippedCounter, times(1)).inc()
 
     verify(commitsCounter, times(1)).inc() // should only have been incremented once on the initial commit
     verify(snapshotTimer).update(anyLong())
@@ -884,7 +894,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
@@ -947,7 +957,7 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
     val cleanUpTimer = mock[Timer]
     when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
-    val skippedCounter = mock[Gauge[Int]]
+    val skippedCounter = mock[Counter]
     when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
     val lastCommitGauge = mock[Gauge[Long]]
     when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
@@ -1002,6 +1012,208 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
     secondCommitFuture.join() // will complete when the sync phase of 2nd commit is complete.
     verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
     verify(snapshotTimer, times(2)).update(anyLong())
+  }
+
+  @Test
+  def testSkipExceptionFromFirstCommitAndContinueSecondCommit(): Unit = {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val skippedCounter = mock[Counter]
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionCounter = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionCounter)
+
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "2000000")
+    // skip commit if exception occurs during the commit
+    taskConfigsMap.put("task.commit.skip.commit.during.failures.enabled", "true")
+    // should throw exception if second commit exception occurs
+    taskConfigsMap.put("task.commit.skip.commit.exception.max.limit", "1")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap))
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION, "4")
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    // Ensure the second commit proceeds without exceptions
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(CompletableFuture.completedFuture(
+        Collections.singletonMap(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)))
+    //  exception during the first commit
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(FutureUtil.failedFuture[util.Map[String, util.Map[String, String]]](new RuntimeException))
+
+    // First commit fails but should not throw exception
+    taskInstance.commit
+    verify(commitsCounter).inc()
+    verify(snapshotTimer).update(anyLong())
+    verifyZeroInteractions(uploadTimer)
+    verifyZeroInteractions(commitTimer)
+    verifyZeroInteractions(skippedCounter)
+    waitForCommitExceptionIsSet(100, 5)
+    // Second commit should succeed
+    taskInstance.commit
+    verify(commitsCounter, times(2)).inc() // should only have been incremented twice - once for each commit
+    verify(commitExceptionCounter).inc()
+  }
+
+  @Test
+  def testCommitThrowsIfAllowSkipCommitButExceptionCountReachMaxLimit(): Unit = {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val skippedCounter = mock[Counter]
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionCounter = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionCounter)
+
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "2000000")
+    // skip commit if exception occurs during the commit
+    taskConfigsMap.put("task.commit.skip.commit.during.failures.enabled", "true")
+    // should throw exception if second commit exception occurs
+    taskConfigsMap.put("task.commit.skip.commit.exception.max.limit", "1")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap))
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION, "4")
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+    // exception for commits
+    when(this.taskCommitManager.upload(any(), any()))
+      .thenReturn(FutureUtil.failedFuture[util.Map[String, util.Map[String, String]]](new RuntimeException))
+
+    // First commit fails but should not throw exception
+    taskInstance.commit
+    waitForCommitExceptionIsSet(100, 5)
+    // Second commit fails but should not throw exception
+    taskInstance.commit
+    verify(commitExceptionCounter).inc()
+    verify(commitsCounter, times(2)).inc()
+    verify(snapshotTimer, times(2)).update(anyLong())
+    verifyZeroInteractions(uploadTimer)
+    verifyZeroInteractions(commitTimer)
+    verifyZeroInteractions(skippedCounter)
+    waitForCommitExceptionIsSet(100, 5)
+    // third commit should fail as the the commit exception counter is greater than the max limit
+    try {
+      taskInstance.commit
+      fail("Should have thrown an exception if exception count reached the max limit.")
+    } catch {
+      case e: Exception =>
+        // expected
+    }
+    verify(commitExceptionCounter, times(2)).inc()
+    verify(commitsCounter, times(2)).inc()
+  }
+
+  @Test
+  def testCommitThrowsIfAllowSkipTimeoutButTimeoutCountReachMaxLimit(): Unit = {
+    val commitsCounter = mock[Counter]
+    when(this.metrics.commits).thenReturn(commitsCounter)
+    val snapshotTimer = mock[Timer]
+    when(this.metrics.snapshotNs).thenReturn(snapshotTimer)
+    val commitTimer = mock[Timer]
+    when(this.metrics.commitNs).thenReturn(commitTimer)
+    val commitSyncTimer = mock[Timer]
+    when(this.metrics.commitSyncNs).thenReturn(commitSyncTimer)
+    val commitAsyncTimer = mock[Timer]
+    when(this.metrics.commitAsyncNs).thenReturn(commitAsyncTimer)
+    val uploadTimer = mock[Timer]
+    when(this.metrics.asyncUploadNs).thenReturn(uploadTimer)
+    val cleanUpTimer = mock[Timer]
+    when(this.metrics.asyncCleanupNs).thenReturn(cleanUpTimer)
+    val skippedCounter = mock[Counter]
+    when(this.metrics.commitsSkipped).thenReturn(skippedCounter)
+    val commitsTimedOutCounter = mock[Counter]
+    when(this.metrics.commitsTimedOut).thenReturn(commitsTimedOutCounter)
+    val lastCommitGauge = mock[Gauge[Long]]
+    when(this.metrics.lastCommitNs).thenReturn(lastCommitGauge)
+    val commitExceptionCounter = mock[Counter]
+    when(this.metrics.commitExceptions).thenReturn(commitExceptionCounter)
+
+    val inputOffsets = new util.HashMap[SystemStreamPartition, String]()
+    inputOffsets.put(SYSTEM_STREAM_PARTITION,"4")
+    val changelogSSP = new SystemStreamPartition(new SystemStream(SYSTEM_NAME, "test-changelog-stream"), new Partition(0))
+
+    val stateCheckpointMarkers: util.Map[String, String] = new util.HashMap[String, String]()
+    val stateCheckpointMarker = KafkaStateCheckpointMarker.serialize(new KafkaStateCheckpointMarker(changelogSSP, "5"))
+    stateCheckpointMarkers.put("storeName", stateCheckpointMarker)
+    when(this.offsetManager.getLastProcessedOffsets(TASK_NAME)).thenReturn(inputOffsets)
+
+    val snapshotSCMs = ImmutableMap.of(KafkaStateCheckpointMarker.KAFKA_STATE_BACKEND_FACTORY_NAME, stateCheckpointMarkers)
+    when(this.taskCommitManager.snapshot(any())).thenReturn(snapshotSCMs)
+    val snapshotSCMFuture: CompletableFuture[util.Map[String, util.Map[String, String]]] =
+      CompletableFuture.completedFuture(snapshotSCMs)
+
+    when(this.taskCommitManager.upload(any(), Matchers.eq(snapshotSCMs))).thenReturn(snapshotSCMFuture) // kafka is no-op
+
+    val cleanUpFuture = new CompletableFuture[Void]()
+    when(this.taskCommitManager.cleanUp(any(), any())).thenReturn(cleanUpFuture)
+
+    // use a separate executor to perform async operations on to test caller thread blocking behavior
+    val taskConfigsMap = new util.HashMap[String, String]()
+    taskConfigsMap.put("task.commit.ms", "-1")
+    // "block" immediately if previous commit async stage not complete
+    taskConfigsMap.put("task.commit.max.delay.ms", "-1")
+    taskConfigsMap.put("task.commit.timeout.ms", "0") // throw exception immediately if blocked
+    taskConfigsMap.put("task.commit.skip.commit.during.failures.enabled", "true")
+    // should throw exception if second commit timeout occurs
+    taskConfigsMap.put("task.commit.skip.commit.timeout.max.limit", "1")
+    when(this.jobContext.getConfig).thenReturn(new MapConfig(taskConfigsMap)) // override default behavior
+
+    setupTaskInstance(None, ForkJoinPool.commonPool())
+
+    taskInstance.commit // async stage will not complete until cleanUpFuture is completed
+    taskInstance.commit // second commit found commit timeout and release the semaphore
+
+    verifyZeroInteractions(commitExceptionCounter)
+    verifyZeroInteractions(skippedCounter)
+    verify(commitsTimedOutCounter).inc()
+    verify(commitsCounter, times(1)).inc() // should only have been incremented once now - second commit was skipped
+    taskInstance.commit // third commit should proceed without any issues and acquire the semaphore
+    try {
+      taskInstance.commit // fourth commit should throw exception as the timeout count reached the max limit
+      fail("Should have thrown an exception due to exceeding timeout limit.")
+    } catch {
+      case e: Exception =>
+        // expected
+    }
+    verify(commitsTimedOutCounter, times(2)).inc() // incremented twice (second and fourth commit)
+    verify(commitsCounter, times(2)).inc() // incremented twice (first and third commit)
+    cleanUpFuture.complete(null) // just to unblock shared executor
   }
 
 
@@ -1089,6 +1301,17 @@ class TestTaskInstance extends AssertionsForJUnit with MockitoSugar {
       applicationContainerContextOption = Some(this.applicationContainerContext),
       applicationTaskContextFactoryOption = applicationTaskContextFactory,
       externalContextOption = Some(this.externalContext), elasticityFactor = elasticityFactor)
+  }
+
+  private def waitForCommitExceptionIsSet(sleepTimeInMs: Int, maxRetry: Int): Unit = {
+    var retries = 0
+    while (taskInstance.commitException.get() == null && retries < maxRetry) {
+      retries += 1
+      Thread.sleep(sleepTimeInMs)
+    }
+    if (taskInstance.commitException.get() == null) {
+      fail("Should have set the commit exception.")
+    }
   }
 
   /**

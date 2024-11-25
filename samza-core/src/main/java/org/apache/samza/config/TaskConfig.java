@@ -65,6 +65,21 @@ public class TaskConfig extends MapConfig {
   public static final String COMMIT_TIMEOUT_MS = "task.commit.timeout.ms";
   static final long DEFAULT_COMMIT_TIMEOUT_MS = Duration.ofMinutes(30).toMillis();
 
+  // Flag to indicate whether to skip commit during failures (exceptions or timeouts)
+  // The number of allowed successive commit exceptions and timeouts are controlled by the following two configs.
+  public static final String SKIP_COMMIT_DURING_FAILURES_ENABLED = "task.commit.skip.commit.during.failures.enabled";
+  private static final boolean DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED = false;
+
+  // Maximum number of allowed successive commit exceptions.
+  // If the number of successive commit exceptions exceeds this limit, the task will be shut down.
+  public static final String SKIP_COMMIT_EXCEPTION_MAX_LIMIT = "task.commit.skip.commit.exception.max.limit";
+  private static final int DEFAULT_SKIP_COMMIT_EXCEPTION_MAX_LIMIT = 5;
+
+  // Maximum number of allowed successive commit timeouts.
+  // If the number of successive commit timeout exceeds this limit, the task will be shut down.
+  public static final String SKIP_COMMIT_TIMEOUT_MAX_LIMIT = "task.commit.skip.commit.timeout.max.limit";
+  private static final int DEFAULT_SKIP_COMMIT_TIMEOUT_MAX_LIMIT = 2;
+
   // how long to wait for a clean shutdown
   public static final String TASK_SHUTDOWN_MS = "task.shutdown.ms";
   static final long DEFAULT_TASK_SHUTDOWN_MS = 30000L;
@@ -417,5 +432,17 @@ public class TaskConfig extends MapConfig {
 
   public double getWatermarkQuorumSizePercentage() {
     return getDouble(WATERMARK_QUORUM_SIZE_PERCENTAGE, DEFAULT_WATERMARK_QUORUM_SIZE_PERCENTAGE);
+  }
+
+  public boolean getSkipCommitDuringFailuresEnabled() {
+    return getBoolean(SKIP_COMMIT_DURING_FAILURES_ENABLED, DEFAULT_SKIP_COMMIT_DURING_FAILURES_ENABLED);
+  }
+
+  public int getSkipCommitExceptionMaxLimit() {
+    return getInt(SKIP_COMMIT_EXCEPTION_MAX_LIMIT, DEFAULT_SKIP_COMMIT_EXCEPTION_MAX_LIMIT);
+  }
+
+  public int getSkipCommitTimeoutMaxLimit() {
+    return getInt(SKIP_COMMIT_TIMEOUT_MAX_LIMIT, DEFAULT_SKIP_COMMIT_TIMEOUT_MAX_LIMIT);
   }
 }
