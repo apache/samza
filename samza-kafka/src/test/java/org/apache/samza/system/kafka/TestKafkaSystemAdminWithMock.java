@@ -62,6 +62,7 @@ public class TestKafkaSystemAdminWithMock {
   private PartitionInfo mockPartitionInfo1;
   private TopicPartition testTopicPartition0;
   private TopicPartition testTopicPartition1;
+  private TopicPartition testTopicPartition2;
 
   private ConcurrentHashMap<String, KafkaSystemConsumer> consumersReference;
 
@@ -100,6 +101,7 @@ public class TestKafkaSystemAdminWithMock {
     // mock LinkedInKafkaConsumerImpl other behaviors
     testTopicPartition0 = new TopicPartition(VALID_TOPIC, 0);
     testTopicPartition1 = new TopicPartition(VALID_TOPIC, 1);
+    testTopicPartition2 = new TopicPartition(VALID_TOPIC, 2);
     Map<TopicPartition, Long> testBeginningOffsets =
         ImmutableMap.of(testTopicPartition0, KAFKA_BEGINNING_OFFSET_FOR_PARTITION0, testTopicPartition1,
             KAFKA_BEGINNING_OFFSET_FOR_PARTITION1);
@@ -176,9 +178,9 @@ public class TestKafkaSystemAdminWithMock {
   public void testGetSystemStreamMetaDataForTopicWithNoMessage() {
     // The topic with no messages will have beginningOffset = 0 and endOffset = 0
     when(mockKafkaConsumer.beginningOffsets(ImmutableList.of(testTopicPartition0, testTopicPartition1))).thenReturn(
-        ImmutableMap.of(testTopicPartition0, 0L, testTopicPartition1, 0L));
+        ImmutableMap.of(testTopicPartition0, 0L, testTopicPartition1, 0L, testTopicPartition2, 10L));
     when(mockKafkaConsumer.endOffsets(ImmutableList.of(testTopicPartition0, testTopicPartition1))).thenReturn(
-        ImmutableMap.of(testTopicPartition0, 0L, testTopicPartition1, 0L));
+        ImmutableMap.of(testTopicPartition0, 0L, testTopicPartition1, 0L, testTopicPartition2, 10L));
 
     Map<String, SystemStreamMetadata> metadataMap =
         kafkaSystemAdmin.getSystemStreamMetadata(ImmutableSet.of(VALID_TOPIC));
@@ -190,7 +192,7 @@ public class TestKafkaSystemAdminWithMock {
     // verify the offset for each partition
     Map<Partition, SystemStreamMetadata.SystemStreamPartitionMetadata> systemStreamPartitionMetadata =
         metadataMap.get(VALID_TOPIC).getSystemStreamPartitionMetadata();
-    assertEquals("there are 2 partitions", systemStreamPartitionMetadata.size(), 2);
+    assertEquals("there are 3 partitions", systemStreamPartitionMetadata.size(), 3);
 
     SystemStreamMetadata.SystemStreamPartitionMetadata partition0Metadata =
         systemStreamPartitionMetadata.get(new Partition(0));
@@ -205,6 +207,13 @@ public class TestKafkaSystemAdminWithMock {
     assertEquals("upcoming offset for partition 1", partition1Metadata.getUpcomingOffset(), "0");
     assertEquals("newest offset is not set due to abnormal upcoming offset", partition1Metadata.getNewestOffset(),
         null);
+
+    SystemStreamMetadata.SystemStreamPartitionMetadata partition2Metadata =
+            systemStreamPartitionMetadata.get(new Partition(2));
+    assertEquals("oldest offset for partition 2", partition2Metadata.getOldestOffset(), "10");
+    assertEquals("upcoming offset for partition 2", partition2Metadata.getUpcomingOffset(), "10");
+    assertEquals("newest offset is not set due to abnormal upcoming offset", partition2Metadata.getNewestOffset(),
+            "10");
   }
 
   @Test
