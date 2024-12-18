@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -102,7 +103,6 @@ import static org.mockito.Mockito.*;
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({ReflectionUtil.class, ContainerStorageManagerRestoreUtil.class})
 public class TestContainerStorageManager {
-
   private static final String STORE_NAME = "store";
   private static final String SYSTEM_NAME = "kafka";
   private static final String STREAM_NAME = "store-stream";
@@ -116,6 +116,7 @@ public class TestContainerStorageManager {
   private SamzaContainerMetrics samzaContainerMetrics;
   private Map<TaskName, TaskModel> tasks;
   private StandbyTestContext testContext;
+  private CheckpointManager checkpointManager;
 
   private volatile int systemConsumerCreationCount;
   private volatile int systemConsumerStartCount;
@@ -143,7 +144,7 @@ public class TestContainerStorageManager {
    * Method to create a containerStorageManager with mocked dependencies
    */
   @Before
-  public void setUp() throws InterruptedException {
+  public void setUp() throws InterruptedException, IOException {
     taskRestoreMetricGauges = new HashMap<>();
     this.tasks = new HashMap<>();
     this.taskInstanceMetrics = new HashMap<>();
@@ -248,7 +249,7 @@ public class TestContainerStorageManager {
         .thenReturn(
             new scala.collection.immutable.Map.Map1(new SystemStream(SYSTEM_NAME, STREAM_NAME), systemStreamMetadata));
 
-    CheckpointManager checkpointManager = mock(CheckpointManager.class);
+    this.checkpointManager = mock(CheckpointManager.class);
     when(checkpointManager.readLastCheckpoint(any(TaskName.class))).thenReturn(new CheckpointV1(new HashMap<>()));
 
     SSPMetadataCache mockSSPMetadataCache = mock(SSPMetadataCache.class);
@@ -318,6 +319,40 @@ public class TestContainerStorageManager {
         this.systemConsumerCreationCount);
     Assert.assertEquals("systemConsumerStopCount count should be 1", 1, this.systemConsumerStopCount);
     Assert.assertEquals("systemConsumerStartCount count should be 1", 1, this.systemConsumerStartCount);
+  }
+
+  /**
+   * This test will attempt to verify if logged stores are deleted if the input checkpoints are empty.
+   * */
+  @Test
+  @SuppressWarnings("ResultOfMethodCallIgnored")
+  public void testDeleteLoggedStoreOnNoCheckpoints() {
+    // reset the mock to reset the stubs in setup method
+    reset(this.checkpointManager);
+    // redo stubbing to return null checkpoints
+    when(this.checkpointManager.readLastCheckpoint(any())).thenReturn(null);
+    // create store under logged stores to demonstrate deletion
+    final File storeFile = new File(DEFAULT_LOGGED_STORE_BASE_DIR.getPath() + File.separator + STORE_NAME);
+    // add contents to store
+    final File storeFilePartition = new File(DEFAULT_LOGGED_STORE_BASE_DIR.getPath() + File.separator + STORE_NAME + File.separator + "Partition_0");
+    storeFilePartition.deleteOnExit();
+    storeFile.deleteOnExit();
+    try {
+      storeFile.mkdirs();
+      storeFilePartition.createNewFile();
+      Assert.assertTrue("Assert that stores are present prior to the test.", storeFile.exists());
+      Assert.assertTrue("Assert that store files are present prior to the test.", storeFilePartition.exists());
+      this.containerStorageManager.start();
+      this.containerStorageManager.shutdown();
+      Assert.assertFalse("Assert that stores are deleted after the test.", storeFile.exists());
+      Assert.assertFalse("Assert that store files are deleted after the test.", storeFilePartition.exists());
+    } catch (Exception e) {
+      System.out.printf("File %s could not be created.", storeFile);
+      Assert.fail();
+    } finally {
+      storeFilePartition.delete();
+      storeFile.delete();
+    }
   }
 
   @Test

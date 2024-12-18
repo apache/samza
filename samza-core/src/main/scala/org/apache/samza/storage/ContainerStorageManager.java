@@ -54,6 +54,7 @@ import org.apache.samza.system.SystemFactory;
 import org.apache.samza.system.SystemStream;
 import org.apache.samza.task.TaskInstanceCollector;
 import org.apache.samza.util.Clock;
+import org.apache.samza.util.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -274,7 +275,11 @@ public class ContainerStorageManager {
         taskCheckpoint = checkpointManager.readLastCheckpoint(taskName);
         LOG.info("Obtained checkpoint: {} for state restore for taskName: {}", taskCheckpoint, taskName);
       }
-      taskCheckpoints.put(taskName, taskCheckpoint);
+
+      // Only insert non-null checkpoints
+      if (taskCheckpoint != null) {
+        taskCheckpoints.put(taskName, taskCheckpoint);
+      }
 
       Map<String, Set<String>> backendFactoryToStoreNames =
           ContainerStorageManagerUtil.getBackendFactoryStoreNames(
@@ -307,6 +312,15 @@ public class ContainerStorageManager {
       taskRestoreManagers.put(taskName, taskStoreRestoreManagers);
       taskBackendFactoryToStoreNames.put(taskName, backendFactoryToStoreNames);
     });
+
+    // if we have received no input checkpoints, it can only be due to two reasons:
+    // a) Samza job is new, so it has no previous checkpoints.
+    // b) The checkpoints were cleared.
+    // We should be able to safely clear local logged stores in either case
+    if (taskCheckpoints.isEmpty()) {
+      LOG.info("No checkpoints read. Attempting to clear logged stores.");
+      clearLoggedStores(loggedStoreBaseDirectory);
+    }
 
     // Init all taskRestores and if successful, restores all the task stores concurrently
     LOG.debug("Pre init and restore checkpoints is: {}", taskCheckpoints);
@@ -355,6 +369,19 @@ public class ContainerStorageManager {
 
     LOG.info("Store Restore complete");
     return taskCheckpoints;
+  }
+
+  private static void clearLoggedStores(File loggedStoreBaseDir) {
+    final FileUtil fileUtil = new FileUtil();
+    final File[] storeDirs = loggedStoreBaseDir.listFiles();
+    if (storeDirs == null || storeDirs.length == 0) {
+      LOG.info("No stores to delete");
+      return;
+    }
+    for (File storeDir: storeDirs) {
+      LOG.info("Clearing store dir {} from logged stores.", storeDir);
+      fileUtil.rm(storeDir);
+    }
   }
 
   /**
