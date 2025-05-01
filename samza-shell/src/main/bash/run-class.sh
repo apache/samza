@@ -28,6 +28,9 @@ cd $base_dir
 base_dir=`pwd`
 cd $home_dir
 
+# Note: When using samza-yarn, base_dir and pwd here looks something like:
+# /<hadoop path>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/__package
+
 echo "Current time: $(date '+%Y-%m-%d %H:%M:%S')"
 
 echo home_dir=$home_dir
@@ -78,15 +81,26 @@ fi
 # permissions for the classpath-related files when they are in their own directory. An example of where
 # this is helpful is when using container images which might have predefined permissions for certain
 # directories.
+
+# FIXME(SAMZA-2804): CLASSPATH_WORKSPACE_DIR is shared among all containers running on the host when using samza-yarn.
+# Using the same path for all containers running on the host for manifest.txt and pathing.jar is a race condition.
+# e.g. "/<hadoop dir>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/__package/classpath_workspace/pathing.jar"
 CLASSPATH_WORKSPACE_DIR=$base_dir/classpath_workspace
 mkdir -p $CLASSPATH_WORKSPACE_DIR
+
+# FIXME(SAMZA-2804): This is a race condition when using samza-yarn.
 # file containing the classpath string; used to avoid passing long classpaths directly to the jar command
 PATHING_MANIFEST_FILE=$CLASSPATH_WORKSPACE_DIR/manifest.txt
+
+# FIXME(SAMZA-2804): This is a race condition when using samza-yarn.
 # jar file to include on the classpath for running the main class
 PATHING_JAR_FILE=$CLASSPATH_WORKSPACE_DIR/pathing.jar
 
+# FIXME(SAMZA-2804): This is a race condition when using samza-yarn.
 # Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
 printf "Class-Path: \n $CLASSPATH \n" > $PATHING_MANIFEST_FILE
+
+# FIXME(SAMZA-2804): This is a race condition when using samza-yarn.
 # Creates a new archive and adds custom manifest information to pathing.jar
 eval "$JAR -cvmf $PATHING_MANIFEST_FILE $PATHING_JAR_FILE"
 
@@ -96,10 +110,14 @@ else
   JAVA="$JAVA_HOME/bin/java"
 fi
 
+# FIXME(SAMZA-2804): This log directory is shared among all containers running on the host when using samza-yarn.
 if [ -z "$SAMZA_LOG_DIR" ]; then
   SAMZA_LOG_DIR="$base_dir"
 fi
 
+# FIXME(SAMZA-2804): This directory is shared among all containers running on the host when using samza-yarn. We should
+# likely be using a per-container tmp directory instead.
+#
 # add usercache directory
 mkdir -p $base_dir/tmp
 JAVA_TEMP_DIR=$base_dir/tmp
