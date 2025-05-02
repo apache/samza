@@ -30,11 +30,11 @@ cd $home_dir
 
 echo "Current time: $(date '+%Y-%m-%d %H:%M:%S')"
 
-# Note: When using samza-yarn, home_dir looks like:
+# For example, home_dir looks like:
 # /<hadoop dir>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027
 echo home_dir=$home_dir
 
-# Note: When using samza-yarn, base_dir looks like:
+# For example, base_dir looks like:
 # /<hadoop path>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/__package
 echo "framework base (location of this script). base_dir=$base_dir"
 
@@ -84,16 +84,18 @@ fi
 # this is helpful is when using container images which might have predefined permissions for certain
 # directories.
 
-# Note: When on samza-yarn, CLASSPATH_WORKSPACE_DIR looks like:
+# For example, CLASSPATH_WORKSPACE_DIR looks like:
 # /<hadoop dir>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/classpath_workspace
 CLASSPATH_WORKSPACE_DIR=$home_dir/classpath_workspace
 mkdir -p $CLASSPATH_WORKSPACE_DIR
 
 # file containing the classpath string; used to avoid passing long classpaths directly to the jar command
 PATHING_MANIFEST_FILE=$CLASSPATH_WORKSPACE_DIR/manifest.txt
+echo "Pathing manifest txt located at $PATHING_MANIFEST_FILE"
 
 # jar file to include on the classpath for running the main class
 PATHING_JAR_FILE=$CLASSPATH_WORKSPACE_DIR/pathing.jar
+echo "Pathing manifest jar located at $PATHING_JAR_FILE"
 
 # Newlines and spaces are intended to ensure proper parsing of manifest in pathing jar
 printf "Class-Path: \n $CLASSPATH \n" > $PATHING_MANIFEST_FILE
@@ -108,7 +110,7 @@ else
 fi
 
 if [ -z "$SAMZA_LOG_DIR" ]; then
-  # When on samza-yarn, SAMZA_LOG_DIR will point to the symlink located at:
+  # SAMZA_LOG_DIR will point to the symlink located at:
   # /<hadoop dir>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/logs
   #
   # When the symlink is resolved, this path will point to:
@@ -116,7 +118,7 @@ if [ -z "$SAMZA_LOG_DIR" ]; then
   SAMZA_LOG_DIR="$home_dir/logs"
 fi
 
-# When on samza-yarn, JAVA_TEMP_DIR will point to a path similar to:
+# JAVA_TEMP_DIR will point to a path similar to:
 # /<hadoop dir>/usercache/<linux account>/appcache/application_1745893616511_0059/container_e64_1745893616511_0059_01_002027/tmp
 mkdir -p $home_dir/tmp
 JAVA_TEMP_DIR=$home_dir/tmp
