@@ -24,6 +24,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,8 @@ import org.slf4j.LoggerFactory;
 public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter {
 
   private static final Logger log = LoggerFactory.getLogger(PosixCommandBasedStatisticsGetter.class);
+  private static final long COMMAND_TIMEOUT_SECONDS = 10;
+  private static final int MAX_ERROR_LINES_TO_CAPTURE = 100;
 
   /**
    * A convenience method to execute shell commands and return all lines of their output.
@@ -44,18 +47,69 @@ public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter
   private List<String> getAllCommandOutput(String[] cmdArray) throws IOException {
     log.debug("Executing commands {}", Arrays.toString(cmdArray));
     Process executable = Runtime.getRuntime().exec(cmdArray);
-    BufferedReader processReader;
     List<String> psOutput = new ArrayList<>();
 
-    processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
+    try (BufferedReader processReader = new BufferedReader(new InputStreamReader(executable.getInputStream()));
+         BufferedReader errorReader = new BufferedReader(new InputStreamReader(executable.getErrorStream()))) {
+
+      // Read output stream
+      String line;
+      while ((line = processReader.readLine()) != null) {
+        if (!line.isEmpty()) {
+          psOutput.add(line);
+        }
+      }
+
+      // Consume error stream to prevent blocking
+      consumeErrorStream(errorReader, cmdArray);
+
+      // Wait for the process to complete to prevent resource leak
+      try {
+        boolean finished = executable.waitFor(COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        if (!finished) {
+          throw new IOException("Command timed out after " + COMMAND_TIMEOUT_SECONDS + " seconds");
+        }
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new IOException("Interrupted while waiting for command to complete", e);
+      }
+    } finally {
+      // Ensure the process is destroyed to free up resources
+      executable.destroy();
+    }
+
+    return psOutput;
+  }
+
+  /**
+   * Consumes the error stream to prevent process blocking.
+   * Collects first MAX_ERROR_LINES_TO_CAPTURE lines and logs them together if any error output exists.
+   *
+   * @param errorReader the BufferedReader for the error stream
+   * @param cmdArray the command that was executed (for logging context)
+   * @throws IOException if reading from the stream fails
+   */
+  private void consumeErrorStream(BufferedReader errorReader, String[] cmdArray) throws IOException {
     String line;
-    while ((line = processReader.readLine()) != null) {
-      if (!line.isEmpty()) {
-        psOutput.add(line);
+    StringBuilder errorOutput = new StringBuilder();
+    int lineCount = 0;
+    int maxLinesToCapture = MAX_ERROR_LINES_TO_CAPTURE;
+
+    while ((line = errorReader.readLine()) != null) {
+      lineCount++;
+
+      if (lineCount <= maxLinesToCapture) {
+        errorOutput.append(line).append("\n");
       }
     }
-    processReader.close();
-    return psOutput;
+
+    if (lineCount > 0) {
+      String errorMessage = errorOutput.toString();
+      if (lineCount > maxLinesToCapture) {
+        errorMessage += String.format("... (%d more lines omitted)", lineCount - maxLinesToCapture);
+      }
+      log.error("Command {} produced error output:\n{}", Arrays.toString(cmdArray), errorMessage);
+    }
   }
 
   private long getTotalPhysicalMemoryUsageBytes() throws IOException {
