@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 public class PosixCommandBasedStatisticsGetter implements SystemStatisticsGetter {
 
   private static final Logger log = LoggerFactory.getLogger(PosixCommandBasedStatisticsGetter.class);
-  private static final long COMMAND_TIMEOUT_SECONDS = 10;
+  private static final long COMMAND_TIMEOUT_SECONDS = 60;
   private static final int MAX_ERROR_LINES_TO_CAPTURE = 100;
 
   /**
