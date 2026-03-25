@@ -29,6 +29,14 @@ jobs:
     env:
       DEVELOCITY_ACCESS_KEY: ${{ secrets.GE_ACCESS_TOKEN }}
     steps:
+      - name: Cache Gradle packages
+        uses: actions/cache@v2
+        with:
+          key: samza-ci-gradle-cache
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+
       - uses: actions/checkout@v2
 
       - name: Set up JDK ${{ matrix.java-version }}
@@ -37,8 +45,8 @@ jobs:
           java-version: ${{ matrix.java-version }}
           distribution: 'zulu'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
 
       - name: Build with Gradle
         run: ./gradlew build
