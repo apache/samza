@@ -68,6 +68,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
   val expectedGrouperFactory: String = new JobConfig(config).getSystemStreamPartitionGrouperFactory
 
   val systemConsumer = systemFactory.getConsumer(checkpointSystem, config, metricsRegistry, this.getClass.getSimpleName)
+  var systemConsumerStarted: Boolean = false
   val systemAdmin =  systemFactory.getAdmin(checkpointSystem, config, this.getClass.getSimpleName)
 
   var taskNames: Set[TaskName] = Set[TaskName]()
@@ -121,6 +122,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info(s"Starting the checkpoint SystemConsumer from oldest offset $oldestOffset")
     systemConsumer.register(checkpointSsp, oldestOffset)
     systemConsumer.start()
+    systemConsumerStarted = true
   }
 
   /**
@@ -148,6 +150,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       if (stopConsumerAfterFirstRead) {
         info("Stopping system consumer")
         systemConsumer.stop()
+        systemConsumerStarted = false
       }
     } else if (!stopConsumerAfterFirstRead) {
       taskNamesToCheckpoints ++= readCheckpoints()
@@ -224,9 +227,10 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     info ("Stopping system producer.")
     producerRef.get().stop()
 
-    if (!stopConsumerAfterFirstRead) {
+    if (systemConsumerStarted) {
       info("Stopping system consumer")
       systemConsumer.stop()
+      systemConsumerStarted = false
     }
 
     info("CheckpointManager stopped.")
