@@ -113,6 +113,10 @@ rat {
 }
 
 allprojects {
+  tasks.withType(JavaCompile) {
+      options.fork = true
+  }
+
   apply plugin: 'idea'
 
   // For all scala compilation, add extra compiler options, taken from version-specific
