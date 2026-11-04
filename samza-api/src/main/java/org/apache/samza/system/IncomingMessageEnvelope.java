@@ -37,7 +37,7 @@ public class IncomingMessageEnvelope {
   private final Object key;
   private final Object message;
   private final int size;
-  // the timestamp when this event occured, should be set by the event source, 0 means unassigned
+  // the timestamp when this event occurred, should be set by the event source, 0 means unassigned
   private long eventTime = 0L;
   // the timestamp when this event is pickedup by samza, 0 means unassgined
   private long arrivalTime = 0L;
